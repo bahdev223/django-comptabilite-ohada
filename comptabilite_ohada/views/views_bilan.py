@@ -11,9 +11,13 @@ class BilanView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         service = BilanService()
-        exercice_id = self.request.GET.get("exercice")
-        context["bilan"] = service.generer_bilan(exercice_id=exercice_id)
-        context["resultat"] = service.generer_compte_resultat(exercice_id=exercice_id)
+        exercice = self.request.GET.get("exercice")
+        if exercice:
+            context["bilan"] = service.bilan(exercice=exercice)
+            context["resultat"] = service.compte_resultat(exercice=exercice)
+        else:
+            context["bilan"] = service.bilan()
+            context["resultat"] = service.compte_resultat()
         return context
 
 
@@ -24,6 +28,9 @@ class CompteResultatView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVi
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         service = BilanService()
-        exercice_id = self.request.GET.get("exercice")
-        context["resultat"] = service.generer_compte_resultat(exercice_id=exercice_id)
+        exercice = self.request.GET.get("exercice")
+        if exercice:
+            context["resultat"] = service.compte_resultat(exercice=exercice)
+        else:
+            context["resultat"] = service.compte_resultat()
         return context

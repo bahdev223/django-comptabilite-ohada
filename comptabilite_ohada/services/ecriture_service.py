@@ -60,7 +60,7 @@ class EcritureService:
             dt = datetime.now()
         if seq:
             return f"{prefix}-{dt.strftime('%Y%m%d')}-{seq}"
-        return f"{prefix}-{dt.strftime('%Y%m%d%H%M%S')}"
+        return f"{prefix}-{dt.strftime('%Y%m%d%H%M%S%f')}"
 
     @classmethod
     @transaction.atomic
@@ -165,7 +165,8 @@ class EcritureService:
         journal = cls._journal_paiement(compte_caisse_code)
         compte_caisse = cls.get_compte(compte_caisse_code)
         cc = cls.get_compte(compte_charge_code) or cls.get_compte("658")
-        ref = cls.generer_reference("CH", date_operation)
+        now = datetime.now()
+        ref = cls.generer_reference("CH", now)
         return cls.creer_ecriture(ref, date_operation, libelle, journal, [
             {"compte": cc, "debit": montant, "libelle": libelle},
             {"compte": compte_caisse, "credit": montant, "libelle": f"Paiement {libelle}"},

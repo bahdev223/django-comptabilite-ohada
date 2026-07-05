@@ -23,7 +23,7 @@ class EcritureListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             qs = qs.filter(validee=True)
         elif status == "non_validee":
             qs = qs.filter(validee=False)
-        return qs.order_by("-date_ecriture", "-date_creation")
+        return qs.order_by("-date_ecriture", "-created_at")
 
 
 class EcritureDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):

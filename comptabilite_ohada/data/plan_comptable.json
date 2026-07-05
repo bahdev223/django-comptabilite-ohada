@@ -1,4 +1,4 @@
-[
+{"comptes": [
   {"code": "101", "libelle": "Capital social", "classe": 1, "nature": "PASSIF", "categorie": "bilan"},
   {"code": "106", "libelle": "Réserves", "classe": 1, "nature": "PASSIF", "categorie": "bilan"},
   {"code": "131", "libelle": "Subventions d'investissement", "classe": 1, "nature": "PASSIF", "categorie": "bilan"},
@@ -35,11 +35,14 @@
   {"code": "602", "libelle": "Achats de matières premières", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
   {"code": "603", "libelle": "Variations de stocks", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
   {"code": "604", "libelle": "Achats de fournitures", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
+  {"code": "606", "libelle": "Fournitures d'entretien", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
+  {"code": "608", "libelle": "Autres achats", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
   {"code": "61", "libelle": "Transports", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
   {"code": "62", "libelle": "Services extérieurs", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
   {"code": "63", "libelle": "Impôts et taxes", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
   {"code": "64", "libelle": "Charges de personnel", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
   {"code": "65", "libelle": "Autres charges", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
+  {"code": "658", "libelle": "Autres charges diverses", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
   {"code": "66", "libelle": "Charges financières", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
   {"code": "67", "libelle": "Dotations aux amortissements", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
   {"code": "68", "libelle": "Dotations aux provisions", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
@@ -54,4 +57,4 @@
   {"code": "78", "libelle": "Reprises aux provisions", "classe": 7, "nature": "PRODUIT", "categorie": "resultat"},
   {"code": "81", "libelle": "Engagements donnés", "classe": 8, "nature": "NEUTRE", "categorie": "hors_bilan"},
   {"code": "82", "libelle": "Engagements reçus", "classe": 8, "nature": "NEUTRE", "categorie": "hors_bilan"}
-]
+]}

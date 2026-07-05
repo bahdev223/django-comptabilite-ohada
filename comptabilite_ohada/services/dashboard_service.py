@@ -112,7 +112,7 @@ class DashboardService:
     @staticmethod
     def dernieres_ecritures(limit=10):
         return EcritureComptable.objects.select_related("journal", "exercice").order_by(
-            "-date_ecriture", "-date_creation"
+            "-date_ecriture", "-created_at"
         )[:limit]
 
     @staticmethod
