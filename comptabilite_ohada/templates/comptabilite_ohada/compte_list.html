@@ -1,0 +1,59 @@
+{% extends "comptabilite_ohada/base.html" %}
+{% block title %}Plan comptable{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Plan comptable</h1>
+    <div>
+        <a href="{% url 'comptabilite:ecriture_create' %}" class="btn btn-primary">Nouvelle &eacute;criture</a>
+    </div>
+</div>
+
+<div class="stat-card">
+    <form method="get" class="row g-3 mb-3">
+        <div class="col-auto">
+            <select name="classe" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">Toutes les classes</option>
+                {% for c in "12345678" %}
+                <option value="{{ c }}" {% if request.GET.classe == c %}selected{% endif %}>Classe {{ c }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <select name="actif" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">Tous</option>
+                <option value="1" {% if request.GET.actif == '1' %}selected{% endif %}>Actifs</option>
+                <option value="0" {% if request.GET.actif == '0' %}selected{% endif %}>Inactifs</option>
+            </select>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Libell&eacute;</th>
+                    <th>Classe</th>
+                    <th>Nature</th>
+                    <th>Type</th>
+                    <th>Actif</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for compte in comptes %}
+                <tr>
+                    <td><a href="{% url 'comptabilite:compte_detail' compte.pk %}">{{ compte.code }}</a></td>
+                    <td>{{ compte.libelle }}</td>
+                    <td>{{ compte.classe }}</td>
+                    <td>{{ compte.get_nature_display }}</td>
+                    <td>{{ compte.get_type_compte_display }}</td>
+                    <td>{% if compte.actif %}&#10003;{% else %}&#10007;{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-muted">Aucun compte trouv&eacute;.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

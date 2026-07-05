@@ -1,0 +1,35 @@
+{% extends "comptabilite_ohada/base.html" %}
+{% block title %}Immobilisations{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Immobilisations</h1>
+</div>
+<div class="stat-card">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>D&eacute;signation</th>
+                    <th>Valeur</th>
+                    <th>Mode amort.</th>
+                    <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for immo in immobilisations %}
+                <tr>
+                    <td><a href="{% url 'comptabilite:immobilisation_detail' immo.pk %}">{{ immo.code }}</a></td>
+                    <td>{{ immo.designation }}</td>
+                    <td class="text-end">{{ immo.valeur_acquisition|floatformat:2 }}</td>
+                    <td>{{ immo.get_mode_amortissement_display }}</td>
+                    <td>{{ immo.get_statut_display }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-muted">Aucune immobilisation.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "comptabilite_ohada/base.html" %}
+{% block title %}Journal {{ journal.code }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{{ journal.code }} - {{ journal.libelle }}</h1>
+    <a href="{% url 'comptabilite:journal_list' %}" class="btn btn-outline-secondary">&larr; Retour</a>
+</div>
+
+<div class="stat-card">
+    <h5>&Eacute;critures du journal (50 derni&egrave;res)</h5>
+    <table class="table table-sm table-hover">
+        <thead>
+            <tr>
+                <th>R&eacute;f&eacute;rence</th>
+                <th>Libell&eacute;</th>
+                <th>Date</th>
+                <th>Exercice</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ecriture in ecritures %}
+            <tr>
+                <td><a href="{% url 'comptabilite:ecriture_detail' ecriture.pk %}">{{ ecriture.reference }}</a></td>
+                <td>{{ ecriture.libelle|truncatewords:8 }}</td>
+                <td>{{ ecriture.date_ecriture|date:"d/m/Y" }}</td>
+                <td>{{ ecriture.exercice }}</td>
+                <td>{% if ecriture.validee %}<span class="badge bg-success">Valid&eacute;e</span>{% else %}<span class="badge bg-warning">En attente</span>{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-muted">Aucune &eacute;criture dans ce journal.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "django-comptabilite-ohada"
+version = "0.1.0"
+description = "SYSCOHADA double-entry accounting engine for Django ERP — Chart of accounts, journal entries, financial statements, fiscal years, amortization, bank reconciliation"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Bah Dev", email = "contact@bah-dev.com"},
+]
+keywords = ["django", "erp", "accounting", "syscohada", "double-entry", "financial-statements", "ohada"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Accounting",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "Django>=4.2",
+    "django-appconf>=1.0",
+]
+
+[project.optional-dependencies]
+rest = ["djangorestframework>=3.14", "django-filter"]
+comptes = ["django-comptes"]
+export = ["openpyxl", "reportlab", "xlwt"]
+
+[project.urls]
+Homepage = "https://github.com/bah-dev/django-comptabilite-ohada"
+Repository = "https://github.com/bah-dev/django-comptabilite-ohada.git"
+Documentation = "https://github.com/bah-dev/django-comptabilite-ohada#readme"
+
+[tool.setuptools.packages.find]
+include = ["comptabilite_ohada*"]
+
+[tool.setuptools.package-data]
+comptabilite_ohada = ["data/*.json"]

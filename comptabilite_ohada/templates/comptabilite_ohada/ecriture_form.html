@@ -1,0 +1,15 @@
+{% extends "comptabilite_ohada/base.html" %}
+{% block title %}{% if object %}Modifier{% else %}Nouvelle{% endif %} &eacute;criture{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{% if object %}Modifier{% else %}Nouvelle{% endif %} &eacute;criture</h1>
+</div>
+<div class="stat-card">
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+        <a href="{% url 'comptabilite:ecriture_list' %}" class="btn btn-outline-secondary">Annuler</a>
+    </form>
+</div>
+{% endblock %}

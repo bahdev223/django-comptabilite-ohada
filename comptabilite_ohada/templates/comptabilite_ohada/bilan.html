@@ -1,0 +1,91 @@
+{% extends "comptabilite_ohada/base.html" %}
+{% block title %}Bilan{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Bilan comptable</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="stat-card">
+            <h5>Actif</h5>
+            <table class="table table-sm">
+                <thead><tr><th>Poste</th><th class="text-end">Montant</th></tr></thead>
+                <tbody>
+                    {% for poste in bilan.actif %}
+                    <tr><td>{{ poste.libelle }}</td><td class="text-end">{{ poste.montant|floatformat:2 }}</td></tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-muted">Aucun actif</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td>Total Actif</td>
+                        <td class="text-end">{{ bilan.total_actif|floatformat:2 }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="stat-card">
+            <h5>Passif</h5>
+            <table class="table table-sm">
+                <thead><tr><th>Poste</th><th class="text-end">Montant</th></tr></thead>
+                <tbody>
+                    {% for poste in bilan.passif %}
+                    <tr><td>{{ poste.libelle }}</td><td class="text-end">{{ poste.montant|floatformat:2 }}</td></tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-muted">Aucun passif</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td>Total Passif</td>
+                        <td class="text-end">{{ bilan.total_passif|floatformat:2 }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="stat-card mt-4">
+    <h5>Compte de r&eacute;sultat</h5>
+    <div class="row">
+        <div class="col-md-6">
+            <table class="table table-sm">
+                <thead><tr><th>Charges</th><th class="text-end">Montant</th></tr></thead>
+                <tbody>
+                    {% for poste in resultat.charges %}
+                    <tr><td>{{ poste.libelle }}</td><td class="text-end">{{ poste.montant|floatformat:2 }}</td></tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-muted">Aucune charge</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold"><td>Total charges</td><td class="text-end">{{ resultat.total_charges|floatformat:2 }}</td></tr>
+                </tfoot>
+            </table>
+        </div>
+        <div class="col-md-6">
+            <table class="table table-sm">
+                <thead><tr><th>Produits</th><th class="text-end">Montant</th></tr></thead>
+                <tbody>
+                    {% for poste in resultat.produits %}
+                    <tr><td>{{ poste.libelle }}</td><td class="text-end">{{ poste.montant|floatformat:2 }}</td></tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-muted">Aucun produit</td></tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold"><td>Total produits</td><td class="text-end">{{ resultat.total_produits|floatformat:2 }}</td></tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    <div class="text-center mt-3">
+        <strong>R&eacute;sultat net : {{ resultat.resultat_net|floatformat:2 }}</strong>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "comptabilite_ohada/base.html" %}
+{% block title %}Journaux{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Journaux comptables</h1>
+</div>
+<div class="stat-card">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Libell&eacute;</th>
+                    <th>Type</th>
+                    <th>Actif</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for journal in journaux %}
+                <tr>
+                    <td><a href="{% url 'comptabilite:journal_detail' journal.pk %}">{{ journal.code }}</a></td>
+                    <td>{{ journal.libelle }}</td>
+                    <td>{{ journal.get_type_journal_display }}</td>
+                    <td>{% if journal.actif %}&#10003;{% else %}&#10007;{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-muted">Aucun journal.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

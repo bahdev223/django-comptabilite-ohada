@@ -1,0 +1,44 @@
+{% extends "comptabilite_ohada/base.html" %}
+{% block title %}Balance{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Balance g&eacute;n&eacute;rale</h1>
+    <a href="?type=balance&format=csv" class="btn btn-outline-success">Exporter CSV</a>
+</div>
+<div class="stat-card">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead>
+                <tr>
+                    <th>Compte</th>
+                    <th>Libell&eacute;</th>
+                    <th class="text-end">Total d&eacute;bit</th>
+                    <th class="text-end">Total cr&eacute;dit</th>
+                    <th class="text-end">Solde</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ligne in balance %}
+                <tr>
+                    <td>{{ ligne.compte.code }}</td>
+                    <td>{{ ligne.compte.libelle }}</td>
+                    <td class="text-end">{{ ligne.total_debit|floatformat:2 }}</td>
+                    <td class="text-end">{{ ligne.total_credit|floatformat:2 }}</td>
+                    <td class="text-end">{{ ligne.solde|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-muted">Aucune donn&eacute;e.</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold">
+                    <td colspan="2">Totaux</td>
+                    <td class="text-end">{{ total_debit|floatformat:2 }}</td>
+                    <td class="text-end">{{ total_credit|floatformat:2 }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}

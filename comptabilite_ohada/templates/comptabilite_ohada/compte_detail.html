@@ -1,0 +1,24 @@
+{% extends "comptabilite_ohada/base.html" %}
+{% block title %}Compte {{ compte.code }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{{ compte.code }} - {{ compte.libelle }}</h1>
+    <a href="{% url 'comptabilite:compte_list' %}" class="btn btn-outline-secondary">&larr; Retour</a>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="stat-card">
+            <h5>D&eacute;tails</h5>
+            <table class="table table-sm">
+                <tr><th>Classe</th><td>{{ compte.classe }}</td></tr>
+                <tr><th>Nature</th><td>{{ compte.get_nature_display }}</td></tr>
+                <tr><th>Type</th><td>{{ compte.get_type_compte_display }}</td></tr>
+                <tr><th>Cat&eacute;gorie</th><td>{{ compte.categorie|default:"-" }}</td></tr>
+                <tr><th>Solde</th><td><strong>{{ solde|floatformat:2 }}</strong></td></tr>
+                <tr><th>Actif</th><td>{% if compte.actif %}&#10003;{% else %}&#10007;{% endif %}</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

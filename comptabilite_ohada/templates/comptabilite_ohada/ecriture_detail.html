@@ -1,0 +1,67 @@
+{% extends "comptabilite_ohada/base.html" %}
+{% load compta_tags %}
+{% block title %}&Eacute;criture {{ ecriture.reference }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>&Eacute;criture {{ ecriture.reference }}</h1>
+    <div>
+        <a href="{% url 'comptabilite:ecriture_list' %}" class="btn btn-outline-secondary">&larr; Retour</a>
+        {% if not ecriture.validee %}
+        <form method="post" action="{% url 'comptabilite:ecriture_valider' ecriture.pk %}" style="display:inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success">Valider</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="stat-card">
+            <h5>Lignes d'&eacute;criture</h5>
+            <table class="table table-sm table-hover">
+                <thead>
+                    <tr>
+                        <th>Compte</th>
+                        <th>Libell&eacute;</th>
+                        <th>D&eacute;bit</th>
+                        <th>Cr&eacute;dit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne in ecriture.lignes.all %}
+                    <tr>
+                        <td>{{ ligne.compte.code }} - {{ ligne.compte.libelle }}</td>
+                        <td>{{ ligne.libelle|default:ecriture.libelle }}</td>
+                        <td class="text-end">{% if ligne.debit > 0 %}{{ ligne.debit|floatformat:2 }}{% endif %}</td>
+                        <td class="text-end">{% if ligne.credit > 0 %}{{ ligne.credit|floatformat:2 }}{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td colspan="2">Total</td>
+                        <td class="text-end">{{ ecriture.lignes.all|somme_debit|floatformat:2 }}</td>
+                        <td class="text-end">{{ ecriture.lignes.all|somme_credit|floatformat:2 }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <h5>Informations</h5>
+            <table class="table table-sm">
+                <tr><th>R&eacute;f&eacute;rence</th><td>{{ ecriture.reference }}</td></tr>
+                <tr><th>Date</th><td>{{ ecriture.date_ecriture|date:"d/m/Y" }}</td></tr>
+                <tr><th>Journal</th><td>{{ ecriture.journal.code }} - {{ ecriture.journal.libelle }}</td></tr>
+                <tr><th>Exercice</th><td>{{ ecriture.exercice }}</td></tr>
+                <tr><th>Type</th><td>{{ ecriture.get_type_operation_display }}</td></tr>
+                <tr><th>Statut</th><td>{% if ecriture.validee %}<span class="badge bg-success">Valid&eacute;e</span>{% else %}<span class="badge bg-warning">En attente</span>{% endif %}</td></tr>
+                <tr><th>Cr&eacute;&eacute;e par</th><td>{{ ecriture.createur|default:"-" }}</td></tr>
+                <tr><th>Valid&eacute;e par</th><td>{{ ecriture.validee_par|default:"-" }}</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

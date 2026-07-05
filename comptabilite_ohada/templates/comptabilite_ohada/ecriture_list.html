@@ -1,0 +1,74 @@
+{% extends "comptabilite_ohada/base.html" %}
+{% block title %}&Eacute;critures{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>&Eacute;critures comptables</h1>
+    <a href="{% url 'comptabilite:ecriture_create' %}" class="btn btn-primary">Nouvelle &eacute;criture</a>
+</div>
+
+<div class="stat-card">
+    <form method="get" class="row g-3 mb-3">
+        <div class="col-auto">
+            <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">Toutes</option>
+                <option value="validee" {% if request.GET.status == 'validee' %}selected{% endif %}>Valid&eacute;es</option>
+                <option value="non_validee" {% if request.GET.status == 'non_validee' %}selected{% endif %}>Non valid&eacute;es</option>
+            </select>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead>
+                <tr>
+                    <th>R&eacute;f&eacute;rence</th>
+                    <th>Libell&eacute;</th>
+                    <th>Journal</th>
+                    <th>Date</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ecriture in ecritures %}
+                <tr>
+                    <td><a href="{% url 'comptabilite:ecriture_detail' ecriture.pk %}">{{ ecriture.reference }}</a></td>
+                    <td>{{ ecriture.libelle|truncatewords:10 }}</td>
+                    <td>{{ ecriture.journal.code }}</td>
+                    <td>{{ ecriture.date_ecriture|date:"d/m/Y" }}</td>
+                    <td>
+                        {% if ecriture.validee %}
+                            <span class="badge bg-success">Valid&eacute;e</span>
+                        {% else %}
+                            <span class="badge bg-warning">En attente</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'comptabilite:ecriture_detail' ecriture.pk %}" class="btn btn-sm btn-outline-primary">Voir</a>
+                        {% if not ecriture.validee %}
+                        <a href="{% url 'comptabilite:ecriture_update' ecriture.pk %}" class="btn btn-sm btn-outline-secondary">Modifier</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-muted">Aucune &eacute;criture.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if is_paginated %}
+    <nav>
+        <ul class="pagination pagination-sm">
+            {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Pr&eacute;c&eacute;dent</a></li>
+            {% endif %}
+            <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+            {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Suivant</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

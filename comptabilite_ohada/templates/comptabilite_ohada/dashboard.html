@@ -1,0 +1,75 @@
+{% extends "comptabilite_ohada/base.html" %}
+{% block title %}Tableau de bord - Comptabilit&eacute; OHADA{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Tableau de bord</h1>
+</div>
+<div class="row">
+    <div class="col-md-3">
+        <div class="stat-card text-center">
+            <h3>{{ total_ecritures }}</h3>
+            <p class="text-muted mb-0">&Eacute;critures totales</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card text-center">
+            <h3 class="text-warning">{{ ecritures_non_validees }}</h3>
+            <p class="text-muted mb-0">Non valid&eacute;es</p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card text-center">
+            <h3 class="text-success">{{ exercice_courant|default:"Aucun" }}</h3>
+            <p class="text-muted mb-0">Exercice courant</p>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="stat-card">
+            <h5>Derni&egrave;res &eacute;critures</h5>
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>R&eacute;f&eacute;rence</th>
+                        <th>Libell&eacute;</th>
+                        <th>Date</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ecriture in dernieres_ecritures|slice:":10" %}
+                    <tr>
+                        <td><a href="{% url 'comptabilite:ecriture_detail' ecriture.pk %}">{{ ecriture.reference }}</a></td>
+                        <td>{{ ecriture.libelle|truncatewords:8 }}</td>
+                        <td>{{ ecriture.date_ecriture|date:"d/m/Y" }}</td>
+                        <td>{% if ecriture.validee %}<span class="badge bg-success">Valid&eacute;e</span>{% else %}<span class="badge bg-warning">En attente</span>{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-muted">Aucune &eacute;criture</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <h5>Totaux par journal</h5>
+            <table class="table table-sm">
+                <thead><tr><th>Journal</th><th>Total</th></tr></thead>
+                <tbody>
+                    {% for j in totaux_par_journal %}
+                    <tr>
+                        <td>{{ j.journal__code }}</td>
+                        <td>{{ j.total|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-muted">Aucune donn&eacute;e</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

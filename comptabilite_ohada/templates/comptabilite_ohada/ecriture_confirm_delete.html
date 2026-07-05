@@ -1,0 +1,13 @@
+{% extends "comptabilite_ohada/base.html" %}
+{% block title %}Confirmer la suppression{% endblock %}
+{% block content %}
+<div class="stat-card">
+    <h1>Confirmer la suppression</h1>
+    <p>Voulez-vous vraiment supprimer l'&eacute;criture <strong>{{ object.reference }}</strong> ?</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Supprimer</button>
+        <a href="{% url 'comptabilite:ecriture_detail' object.pk %}" class="btn btn-outline-secondary">Annuler</a>
+    </form>
+</div>
+{% endblock %}
