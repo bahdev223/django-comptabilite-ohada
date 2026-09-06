@@ -22,9 +22,16 @@ class CompteComptableModelTest(TestCase):
     def test_compte_actif_par_defaut(self):
         self.assertTrue(self.compte.actif)
 
-    def test_compte_calculer_solde_vide(self):
-        solde = self.compte.calculer_solde()
-        self.assertEqual(solde, 0)
+    def test_compte_sans_ecriture_a_un_solde_nul(self):
+        """
+        Le solde ne vit pas sur le modele : il se calcule a partir des
+        ecritures, donc dans `JournalService`. Un compte porte son code et son
+        sens, pas un montant — sinon il faudrait le tenir a jour a chaque
+        ecriture, et il divergerait du grand livre le jour ou l'on oublie.
+        """
+        from comptabilite_ohada.services.journal_service import BalanceService
+
+        self.assertEqual(BalanceService.solde_compte(self.compte), 0)
 
 
 class EcritureComptableModelTest(TestCase):

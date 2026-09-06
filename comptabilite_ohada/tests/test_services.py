@@ -43,7 +43,11 @@ class EcritureServiceTest(TestCase):
         ecriture = EcritureComptable.objects.create(
             journal=self.journal, exercice=self.exercice,
             date_ecriture="2025-06-01", reference="VN-001",
-            libelle="Vente test", validee=False, created_by=self.user,
+            libelle="Vente test", validee=False,
+            # `created_by` est un champ TEXTE : il garde un nom, pas une
+            # cle etrangere. Un compte supprime ne doit pas emporter
+            # l'ecriture qu'il a saisie, ni la rendre anonyme.
+            created_by=self.user.username,
         )
         LigneEcritureComptable.objects.create(
             ecriture=ecriture, compte=self.compte_caisse, debit=50000,
