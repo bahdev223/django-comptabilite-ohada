@@ -28,6 +28,11 @@ class CategorieCompte(models.TextChoices):
     BILAN = "bilan", _("Bilan")
     RESULTAT = "resultat", _("Résultat")
     HORS_BILAN = "hors_bilan", _("Hors bilan")
+    # Classe 9 du SYSCOHADA : comptes reflechis, de couts, d'ecarts, de
+    # liaisons internes. Ils font partie du referentiel officiel ; sans
+    # cette categorie, un plan comptable complet ne pouvait pas etre
+    # charge sans violer les choix du modele.
+    ANALYTIQUE = "analytique", _("Analytique")
 
 
 class CompteComptable(models.Model):
