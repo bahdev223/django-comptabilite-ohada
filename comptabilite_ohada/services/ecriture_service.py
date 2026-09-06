@@ -69,6 +69,17 @@ class EcritureService:
                        exercice=None, piece=None, validee=True, user=None):
         if exercice is None:
             exercice = cls.get_exercice(date_ecriture)
+        # get_exercice rend None quand aucun exercice ouvert ne couvre la
+        # date. L'ecriture partait alors avec exercice=None et l'echec
+        # remontait en IntegrityError depuis la base, apres qu'une
+        # operation de tresorerie avait deja pu etre enregistree. On
+        # refuse ici, avec un message qui dit quoi faire.
+        if exercice is None:
+            raise ValidationError(
+                "Aucun exercice comptable ouvert ne couvre la date "
+                f"{date_ecriture}. Ouvrez un exercice avant d'enregistrer "
+                "des ecritures."
+            )
 
         # Une ecriture doit etre equilibree : c'est la regle fondatrice de
         # la partie double. Elle etait exposee par est_equilibree mais
@@ -88,6 +99,18 @@ class EcritureService:
             )
         if total_debit == 0:
             raise ValidationError("Une ecriture sans montant ne peut pas etre enregistree.")
+
+        # get_compte rend None quand le code n'existe pas au plan comptable.
+        # La ligne partait alors avec compte=None et se faisait rejeter par
+        # la contrainte NOT NULL, bien apres le point ou l'on aurait pu
+        # expliquer le probleme. On nomme le compte manquant.
+        for position, ligne in enumerate(lignes, start=1):
+            if ligne.get("compte") is None:
+                raise ValidationError(
+                    f"Ligne {position} de l'ecriture « {libelle} » : compte "
+                    "comptable introuvable. Verifiez que le code existe et "
+                    "qu'il est actif au plan comptable."
+                )
 
         ecriture = EcritureComptable.objects.create(
             reference=reference,
