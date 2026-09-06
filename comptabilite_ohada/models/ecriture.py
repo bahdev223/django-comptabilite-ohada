@@ -8,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
 class EcritureComptable(models.Model):
     """Écriture comptable en partie double."""
 
-    reference = models.CharField(_("Référence"), max_length=50, unique=True)
+    reference = models.CharField(_("Référence"), max_length=50)
     date_ecriture = models.DateField(_("Date d'écriture"))
     libelle = models.TextField(_("Libellé"))
     journal = models.ForeignKey(
@@ -23,7 +23,17 @@ class EcritureComptable(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.CharField(_("Créé par"), max_length=100, blank=True, null=True)
 
+    # Preparation multi-entreprises. Vide tant que l'application ne sert
+    # qu'une entreprise ; le projet hote y place l'identifiant de son
+    # organisation le jour ou il en gere plusieurs. Un CharField plutot
+    # qu'une cle etrangere : le paquet reste ainsi utilisable sans
+    # connaitre le modele d'organisation de l'hote.
+    entreprise_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
+
     class Meta:
+        # Unicite par entreprise plutot que globale : deux entreprises
+        # doivent pouvoir employer le meme reference.
+        unique_together = [["entreprise_id", "reference"]]
         verbose_name = _("Écriture comptable")
         verbose_name_plural = _("Écritures comptables")
         ordering = ["-date_ecriture", "-created_at"]

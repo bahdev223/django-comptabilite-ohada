@@ -33,7 +33,7 @@ class CategorieCompte(models.TextChoices):
 class CompteComptable(models.Model):
     """Plan comptable SYSCOHADA — hiérarchique."""
 
-    code = models.CharField(_("Code"), max_length=20, unique=True)
+    code = models.CharField(_("Code"), max_length=20)
     libelle = models.CharField(_("Libellé"), max_length=200)
     nature = models.CharField(_("Nature"), max_length=10, choices=NatureCompte.choices)
     sens = models.CharField(_("Sens"), max_length=10, choices=SensCompte.choices)
@@ -53,7 +53,17 @@ class CompteComptable(models.Model):
     )
     actif = models.BooleanField(_("Actif"), default=True)
 
+    # Preparation multi-entreprises. Vide tant que l'application ne sert
+    # qu'une entreprise ; le projet hote y place l'identifiant de son
+    # organisation le jour ou il en gere plusieurs. Un CharField plutot
+    # qu'une cle etrangere : le paquet reste ainsi utilisable sans
+    # connaitre le modele d'organisation de l'hote.
+    entreprise_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
+
     class Meta:
+        # Unicite par entreprise plutot que globale : deux entreprises
+        # doivent pouvoir employer le meme code.
+        unique_together = [["entreprise_id", "code"]]
         verbose_name = _("Compte comptable")
         verbose_name_plural = _("Comptes comptables")
         ordering = ["code"]

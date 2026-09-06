@@ -7,6 +7,7 @@ from django.utils import timezone
 from ..models import EcritureComptable, LigneEcritureComptable, JournalComptable
 from ..models import CompteComptable, ExerciceComptable
 from ..signals.ecriture import ecriture_validee
+from django.core.exceptions import ValidationError
 
 
 class EcritureService:
@@ -68,6 +69,25 @@ class EcritureService:
                        exercice=None, piece=None, validee=True, user=None):
         if exercice is None:
             exercice = cls.get_exercice(date_ecriture)
+
+        # Une ecriture doit etre equilibree : c'est la regle fondatrice de
+        # la partie double. Elle etait exposee par est_equilibree mais
+        # jamais appliquee, si bien qu'une ecriture fausse pouvait etre
+        # enregistree ET marquee validee. On refuse avant toute creation,
+        # la transaction n'ayant alors rien a annuler.
+        total_debit = sum(
+            (Decimal(str(ligne.get("debit", 0) or 0)) for ligne in lignes), Decimal("0.00")
+        )
+        total_credit = sum(
+            (Decimal(str(ligne.get("credit", 0) or 0)) for ligne in lignes), Decimal("0.00")
+        )
+        if total_debit != total_credit:
+            raise ValidationError(
+                f"Ecriture desequilibree : debit {total_debit}, credit {total_credit}. "
+                f"L'ecart est de {abs(total_debit - total_credit)}."
+            )
+        if total_debit == 0:
+            raise ValidationError("Une ecriture sans montant ne peut pas etre enregistree.")
 
         ecriture = EcritureComptable.objects.create(
             reference=reference,
