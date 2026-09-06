@@ -36,19 +36,22 @@ class EcritureDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
 class EcritureCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = EcritureComptable
     template_name = "comptabilite_ohada/ecriture_form.html"
-    fields = ["journal", "exercice", "date_ecriture", "reference", "libelle", "type_operation"]
+    fields = ["journal", "exercice", "date_ecriture", "reference", "libelle", "piece"]
     permission_required = "comptabilite_ohada.add_ecriturecomptable"
 
     def form_valid(self, form):
-        form.instance.createur = self.request.user
+        form.instance.created_by = self.request.user.get_username()
         messages.success(self.request, "Écriture créée avec succès.")
         return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("comptabilite:ecriture_detail", kwargs={"pk": self.object.pk})
 
 
 class EcritureUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     model = EcritureComptable
     template_name = "comptabilite_ohada/ecriture_form.html"
-    fields = ["journal", "date_ecriture", "libelle", "type_operation"]
+    fields = ["journal", "date_ecriture", "libelle", "piece"]
     permission_required = "comptabilite_ohada.change_ecriturecomptable"
 
     def get_queryset(self):
@@ -57,6 +60,9 @@ class EcritureUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
     def form_valid(self, form):
         messages.success(self.request, "Écriture modifiée avec succès.")
         return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("comptabilite:ecriture_detail", kwargs={"pk": self.object.pk})
 
 
 class EcritureDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):

@@ -1,0 +1,5 @@
+
+# Produits de construction : regeneres a chaque `pip install -e .`
+*.egg-info/
+__pycache__/
+*.pyc
