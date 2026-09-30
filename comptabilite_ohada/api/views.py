@@ -2,6 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from ..permissions import AccountingTenantPermission
+from ..tenant import resolve_entreprise_id
 from django_filters import rest_framework as filters
 from django.db.models import Sum, Q
 from django.utils import timezone
@@ -34,7 +36,7 @@ class EntrepriseScopedViewSetMixin:
     """Scope les ressources comptables sur l'entreprise portée par l'utilisateur."""
 
     def get_entreprise_id(self):
-        return str(getattr(self.request.user, "entreprise_id", "") or "")
+        return resolve_entreprise_id(self.request)
 
     def get_queryset(self):
         return super().get_queryset().filter(entreprise_id=self.get_entreprise_id())
@@ -47,7 +49,7 @@ class EntrepriseScopedViewSetMixin:
 
 
 class CompteComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, AccountingTenantPermission]
     queryset = CompteComptable.objects.all()
     serializer_class = CompteComptableSerializer
     filterset_fields = ["code", "nature", "type_compte", "categorie", "actif", "entreprise_id"]
