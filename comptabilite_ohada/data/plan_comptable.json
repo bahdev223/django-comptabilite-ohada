@@ -1,61 +1,1124 @@
-{"comptes": [
-  {"code": "101", "libelle": "Capital social", "classe": 1, "nature": "PASSIF", "categorie": "bilan"},
-  {"code": "106", "libelle": "Réserves", "classe": 1, "nature": "PASSIF", "categorie": "bilan"},
-  {"code": "131", "libelle": "Subventions d'investissement", "classe": 1, "nature": "PASSIF", "categorie": "bilan"},
-  {"code": "15", "libelle": "Provisions pour risques et charges", "classe": 1, "nature": "PASSIF", "categorie": "bilan"},
-  {"code": "16", "libelle": "Emprunts et dettes assimilées", "classe": 1, "nature": "PASSIF", "categorie": "bilan"},
-  {"code": "201", "libelle": "Frais d'établissement", "classe": 2, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "202", "libelle": "Frais de recherche et développement", "classe": 2, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "203", "libelle": "Brevet, marques, droits similaires", "classe": 2, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "21", "libelle": "Terrains", "classe": 2, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "22", "libelle": "Bâtiments", "classe": 2, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "23", "libelle": "Matériel et outillage", "classe": 2, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "24", "libelle": "Matériel de transport", "classe": 2, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "25", "libelle": "Mobilier et matériel de bureau", "classe": 2, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "26", "libelle": "Immobilisations incorporelles", "classe": 2, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "28", "libelle": "Amortissements", "classe": 2, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "31", "libelle": "Marchandises", "classe": 3, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "32", "libelle": "Matières premières", "classe": 3, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "33", "libelle": "Produits finis", "classe": 3, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "401", "libelle": "Fournisseurs", "classe": 4, "nature": "PASSIF", "categorie": "bilan"},
-  {"code": "409", "libelle": "Fournisseurs débiteurs", "classe": 4, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "411", "libelle": "Clients", "classe": 4, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "419", "libelle": "Clients créditeurs", "classe": 4, "nature": "PASSIF", "categorie": "bilan"},
-  {"code": "421", "libelle": "Personnel rémunérations dues", "classe": 4, "nature": "PASSIF", "categorie": "bilan"},
-  {"code": "431", "libelle": "Sécurité sociale", "classe": 4, "nature": "PASSIF", "categorie": "bilan"},
-  {"code": "441", "libelle": "État impôts sur bénéfices", "classe": 4, "nature": "PASSIF", "categorie": "bilan"},
-  {"code": "445", "libelle": "État TVA", "classe": 4, "nature": "PASSIF", "categorie": "bilan"},
-  {"code": "461", "libelle": "Associés", "classe": 4, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "471", "libelle": "Débiteurs divers", "classe": 4, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "48", "libelle": "Comptes de régularisation", "classe": 4, "nature": "MIXTE", "categorie": "bilan"},
-  {"code": "521", "libelle": "Banques", "classe": 5, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "552", "libelle": "Monnaie électronique / Mobile Money", "classe": 5, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "571", "libelle": "Caisse", "classe": 5, "nature": "ACTIF", "categorie": "bilan"},
-  {"code": "581", "libelle": "Virements internes", "classe": 5, "nature": "MIXTE", "categorie": "bilan"},
-  {"code": "601", "libelle": "Achats de marchandises", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "602", "libelle": "Achats de matières premières", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "603", "libelle": "Variations de stocks", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "604", "libelle": "Achats de fournitures", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "606", "libelle": "Fournitures d'entretien", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "608", "libelle": "Autres achats", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "61", "libelle": "Transports", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "62", "libelle": "Services extérieurs", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "63", "libelle": "Impôts et taxes", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "64", "libelle": "Charges de personnel", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "65", "libelle": "Autres charges", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "658", "libelle": "Autres charges diverses", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "66", "libelle": "Charges financières", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "67", "libelle": "Dotations aux amortissements", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "68", "libelle": "Dotations aux provisions", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
-  {"code": "701", "libelle": "Ventes de marchandises", "classe": 7, "nature": "PRODUIT", "categorie": "resultat"},
-  {"code": "702", "libelle": "Ventes de produits finis", "classe": 7, "nature": "PRODUIT", "categorie": "resultat"},
-  {"code": "703", "libelle": "Prestations de services", "classe": 7, "nature": "PRODUIT", "categorie": "resultat"},
-  {"code": "706", "libelle": "Produits accessoires", "classe": 7, "nature": "PRODUIT", "categorie": "resultat"},
-  {"code": "71", "libelle": "Subventions d'exploitation", "classe": 7, "nature": "PRODUIT", "categorie": "resultat"},
-  {"code": "75", "libelle": "Autres produits", "classe": 7, "nature": "PRODUIT", "categorie": "resultat"},
-  {"code": "76", "libelle": "Produits financiers", "classe": 7, "nature": "PRODUIT", "categorie": "resultat"},
-  {"code": "77", "libelle": "Reprises aux amortissements", "classe": 7, "nature": "PRODUIT", "categorie": "resultat"},
-  {"code": "78", "libelle": "Reprises aux provisions", "classe": 7, "nature": "PRODUIT", "categorie": "resultat"},
-  {"code": "81", "libelle": "Engagements donnés", "classe": 8, "nature": "NEUTRE", "categorie": "hors_bilan"},
-  {"code": "82", "libelle": "Engagements reçus", "classe": 8, "nature": "NEUTRE", "categorie": "hors_bilan"}
-]}
+{
+  "comptes": [
+    {
+      "code": "10",
+      "libelle": "Capital",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "101",
+      "libelle": "Capital social",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "10"
+    },
+    {
+      "code": "103",
+      "libelle": "Capital personnel",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "10"
+    },
+    {
+      "code": "11",
+      "libelle": "Réserves",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "12",
+      "libelle": "Report à nouveau",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "13",
+      "libelle": "Résultat net de l'exercice",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "131",
+      "libelle": "Résultat net : bénéfice",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "13"
+    },
+    {
+      "code": "139",
+      "libelle": "Résultat net : perte",
+      "nature": "MIXTE",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "13"
+    },
+    {
+      "code": "14",
+      "libelle": "Subventions d'investissement",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "15",
+      "libelle": "Provisions réglementées et fonds assimilés",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "16",
+      "libelle": "Emprunts et dettes assimilées",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "17",
+      "libelle": "Dettes de location acquisition",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "18",
+      "libelle": "Dettes liées à des participations et comptes de liaison",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "19",
+      "libelle": "Provisions pour risques et charges",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "21",
+      "libelle": "Immobilisations incorporelles",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "22",
+      "libelle": "Terrains",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "23",
+      "libelle": "Bâtiments, installations techniques et agencements",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "24",
+      "libelle": "Matériel, mobilier et actifs biologiques",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "245",
+      "libelle": "Matériel de transport",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "24"
+    },
+    {
+      "code": "25",
+      "libelle": "Avances et acomptes versés sur immobilisations",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "26",
+      "libelle": "Titres de participation",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "27",
+      "libelle": "Autres immobilisations financières",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "28",
+      "libelle": "Amortissements",
+      "nature": "ACTIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "29",
+      "libelle": "Dépréciations des immobilisations",
+      "nature": "ACTIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "31",
+      "libelle": "Marchandises",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "32",
+      "libelle": "Matières premières et fournitures liées",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "33",
+      "libelle": "Autres approvisionnements",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "34",
+      "libelle": "Produits en cours",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "35",
+      "libelle": "Services en cours",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "36",
+      "libelle": "Produits finis",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "37",
+      "libelle": "Produits intermédiaires et résiduels",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "38",
+      "libelle": "Stocks en cours de route, en consignation ou en dépôt",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "39",
+      "libelle": "Dépréciations des stocks et encours",
+      "nature": "ACTIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "40",
+      "libelle": "Fournisseurs et comptes rattachés",
+      "nature": "MIXTE",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "401",
+      "libelle": "Fournisseurs, dettes en compte",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "40"
+    },
+    {
+      "code": "404",
+      "libelle": "Fournisseurs d'immobilisations",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "40"
+    },
+    {
+      "code": "409",
+      "libelle": "Fournisseurs débiteurs",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "40"
+    },
+    {
+      "code": "41",
+      "libelle": "Clients et comptes rattachés",
+      "nature": "MIXTE",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "411",
+      "libelle": "Clients",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "41"
+    },
+    {
+      "code": "419",
+      "libelle": "Clients créditeurs",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "41"
+    },
+    {
+      "code": "42",
+      "libelle": "Personnel",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "422",
+      "libelle": "Personnel, rémunérations dues",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "42"
+    },
+    {
+      "code": "425",
+      "libelle": "Personnel, avances et acomptes",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "42"
+    },
+    {
+      "code": "43",
+      "libelle": "Organismes sociaux",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "431",
+      "libelle": "Sécurité sociale",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "43"
+    },
+    {
+      "code": "44",
+      "libelle": "État et collectivités publiques",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "441",
+      "libelle": "État, impôt sur les bénéfices",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "44"
+    },
+    {
+      "code": "443",
+      "libelle": "État, TVA facturée",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "44"
+    },
+    {
+      "code": "445",
+      "libelle": "État, TVA récupérable",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "44"
+    },
+    {
+      "code": "447",
+      "libelle": "État, impôts retenus à la source",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "44"
+    },
+    {
+      "code": "45",
+      "libelle": "Organismes internationaux",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "46",
+      "libelle": "Apporteurs, associés et groupe",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "47",
+      "libelle": "Débiteurs et créditeurs divers",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "471",
+      "libelle": "Débiteurs et créditeurs divers",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "47"
+    },
+    {
+      "code": "48",
+      "libelle": "Créances et dettes hors activités ordinaires",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "49",
+      "libelle": "Dépréciations et provisions pour risques à court terme",
+      "nature": "MIXTE",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "50",
+      "libelle": "Titres de placement",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "51",
+      "libelle": "Valeurs à encaisser",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "52",
+      "libelle": "Banques",
+      "nature": "MIXTE",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "521",
+      "libelle": "Banques locales",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "52"
+    },
+    {
+      "code": "53",
+      "libelle": "Établissements financiers et assimilés",
+      "nature": "MIXTE",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "54",
+      "libelle": "Instruments de trésorerie",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "55",
+      "libelle": "Instruments de monnaie électronique",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "552",
+      "libelle": "Monnaie électronique, téléphone portable / Mobile Money",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "55"
+    },
+    {
+      "code": "56",
+      "libelle": "Banques, crédits de trésorerie et d'escompte",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "57",
+      "libelle": "Caisse",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "571",
+      "libelle": "Caisse siège social",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "57"
+    },
+    {
+      "code": "58",
+      "libelle": "Régies d'avances, accréditifs et virements internes",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "581",
+      "libelle": "Régies d'avances",
+      "nature": "ACTIF",
+      "sens": "DEBIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "58"
+    },
+    {
+      "code": "585",
+      "libelle": "Virements de fonds",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "58"
+    },
+    {
+      "code": "59",
+      "libelle": "Dépréciations et provisions pour risques à court terme de trésorerie",
+      "nature": "ACTIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "60",
+      "libelle": "Achats",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "601",
+      "libelle": "Achats de marchandises",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "60"
+    },
+    {
+      "code": "602",
+      "libelle": "Achats de matières premières et fournitures liées",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "60"
+    },
+    {
+      "code": "603",
+      "libelle": "Variations des stocks de biens achetés",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "6031",
+      "libelle": "Variations des stocks de marchandises",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "603"
+    },
+    {
+      "code": "6032",
+      "libelle": "Variations des stocks de matières premières",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "603"
+    },
+    {
+      "code": "6033",
+      "libelle": "Variations des stocks d'autres approvisionnements",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "603"
+    },
+    {
+      "code": "604",
+      "libelle": "Achats stockés de matières et fournitures consommables",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "60"
+    },
+    {
+      "code": "605",
+      "libelle": "Autres achats",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "60"
+    },
+    {
+      "code": "608",
+      "libelle": "Achats d'emballages",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "60"
+    },
+    {
+      "code": "61",
+      "libelle": "Transports",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "62",
+      "libelle": "Services extérieurs",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "63",
+      "libelle": "Autres services extérieurs",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "64",
+      "libelle": "Impôts et taxes",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "65",
+      "libelle": "Autres charges",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "658",
+      "libelle": "Charges diverses",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "65"
+    },
+    {
+      "code": "659",
+      "libelle": "Charges pour dépréciations et provisions pour risques à court terme",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "65"
+    },
+    {
+      "code": "66",
+      "libelle": "Charges de personnel",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "661",
+      "libelle": "Rémunérations du personnel",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "66"
+    },
+    {
+      "code": "664",
+      "libelle": "Charges sociales",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "66"
+    },
+    {
+      "code": "67",
+      "libelle": "Frais financiers et charges assimilées",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "68",
+      "libelle": "Dotations aux amortissements",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "69",
+      "libelle": "Dotations aux provisions et aux dépréciations",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "70",
+      "libelle": "Ventes",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "701",
+      "libelle": "Ventes de marchandises",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "70"
+    },
+    {
+      "code": "702",
+      "libelle": "Ventes de produits finis",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "70"
+    },
+    {
+      "code": "706",
+      "libelle": "Services vendus",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "70"
+    },
+    {
+      "code": "71",
+      "libelle": "Subventions d'exploitation",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "72",
+      "libelle": "Production immobilisée",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "73",
+      "libelle": "Variations des stocks de biens et services produits",
+      "nature": "MIXTE",
+      "sens": "MIXTE",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "75",
+      "libelle": "Autres produits",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": false
+    },
+    {
+      "code": "758",
+      "libelle": "Produits divers",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "75"
+    },
+    {
+      "code": "759",
+      "libelle": "Reprises de charges pour dépréciations et provisions à court terme",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "75"
+    },
+    {
+      "code": "77",
+      "libelle": "Revenus financiers et produits assimilés",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "78",
+      "libelle": "Transferts de charges",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "79",
+      "libelle": "Reprises de provisions, dépréciations et autres",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "81",
+      "libelle": "Valeurs comptables des cessions d'immobilisations",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "82",
+      "libelle": "Produits des cessions d'immobilisations",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "83",
+      "libelle": "Charges hors activités ordinaires",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "84",
+      "libelle": "Produits hors activités ordinaires",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "85",
+      "libelle": "Dotations hors activités ordinaires",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "86",
+      "libelle": "Reprises hors activités ordinaires",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "87",
+      "libelle": "Participation des travailleurs",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "88",
+      "libelle": "Subventions d'équilibre",
+      "nature": "PRODUIT",
+      "sens": "CREDIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "89",
+      "libelle": "Impôts sur le résultat",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "groupe",
+      "est_mouvement": true
+    },
+    {
+      "code": "9011",
+      "libelle": "Crédits confirmés obtenus",
+      "nature": "NEUTRE",
+      "sens": "MIXTE",
+      "categorie": "hors_bilan",
+      "type_compte": "compte",
+      "est_mouvement": true
+    },
+    {
+      "code": "9022",
+      "libelle": "Cautions et garanties obtenues",
+      "nature": "NEUTRE",
+      "sens": "MIXTE",
+      "categorie": "hors_bilan",
+      "type_compte": "compte",
+      "est_mouvement": true
+    },
+    {
+      "code": "9051",
+      "libelle": "Crédits accordés non décaissés",
+      "nature": "NEUTRE",
+      "sens": "MIXTE",
+      "categorie": "hors_bilan",
+      "type_compte": "compte",
+      "est_mouvement": true
+    },
+    {
+      "code": "9062",
+      "libelle": "Cautions et garanties accordées",
+      "nature": "NEUTRE",
+      "sens": "MIXTE",
+      "categorie": "hors_bilan",
+      "type_compte": "compte",
+      "est_mouvement": true
+    }
+  ]
+}
