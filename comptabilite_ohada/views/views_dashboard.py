@@ -11,9 +11,10 @@ class DashboardView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         service = DashboardService()
-        context["total_ecritures"] = service.compter_ecritures()
-        context["ecritures_non_validees"] = service.compter_ecritures_non_validees()
-        context["dernieres_ecritures"] = service.dernieres_ecritures()
-        context["exercice_courant"] = service.exercice_courant()
-        context["totaux_par_journal"] = service.totaux_par_journal()
+        entreprise_id = str(getattr(self.request.user, "entreprise_id", "") or "")
+        context["total_ecritures"] = service.compter_ecritures(entreprise_id)
+        context["ecritures_non_validees"] = service.compter_ecritures_non_validees(entreprise_id)
+        context["dernieres_ecritures"] = service.dernieres_ecritures(entreprise_id=entreprise_id)
+        context["exercice_courant"] = service.exercice_courant(entreprise_id)
+        context["totaux_par_journal"] = service.totaux_par_journal(entreprise_id)
         return context
