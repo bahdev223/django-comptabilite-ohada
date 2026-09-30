@@ -239,45 +239,61 @@ class EcritureService:
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_facture_vente(cls, montant_ttc, montant_tva, libelle,
-                                     compte_client_code, compte_produit_code,
-                                     compte_tva_code=None, user=None):
-        journal = cls.get_or_create_journal("VN", "Ventes", "VENTES")
-        cc = cls.get_compte(compte_client_code)
-        cp = cls.get_compte(compte_produit_code)
+    def creer_ecriture_facture_vente(
+        cls, montant_ttc, montant_tva, libelle,
+        compte_client_code, compte_produit_code,
+        compte_tva_code=None, user=None, entreprise_id="",
+        date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("VN", "Ventes", "VENTES", entreprise_id)
+        cc = cls.get_compte(compte_client_code, entreprise_id)
+        cp = cls.get_compte(compte_produit_code, entreprise_id)
         ref = cls.generer_reference("FV")
+        montant_produit = montant_ttc - montant_tva if compte_tva_code else montant_ttc
         lignes = [
             {"compte": cc, "debit": montant_ttc, "libelle": libelle},
-            {"compte": cp, "credit": montant_ttc - montant_tva, "libelle": libelle},
+            {"compte": cp, "credit": montant_produit, "libelle": libelle},
         ]
         if montant_tva > 0 and compte_tva_code:
             lignes.append({
-                "compte": cls.get_compte(compte_tva_code),
+                "compte": cls.get_compte(compte_tva_code, entreprise_id),
                 "credit": montant_tva, "libelle": f"TVA {libelle}",
             })
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, lignes, user=user)
+        return cls.creer_ecriture(
+            ref, date_operation, libelle, journal, lignes,
+            user=user, entreprise_id=entreprise_id, **trace
+        )
 
     # ─── Achats / Fournisseurs ────────────────────────────────
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_achat(cls, montant_ttc, montant_tva, montant_ht, libelle,
-                             compte_charge_code, compte_fournisseur_code,
-                             compte_tva_code=None, user=None):
-        journal = cls.get_or_create_journal("AC", "Achats", "ACHATS")
-        cch = cls.get_compte(compte_charge_code)
-        cf = cls.get_compte(compte_fournisseur_code)
+    def creer_ecriture_achat(
+        cls, montant_ttc, montant_tva, montant_ht, libelle,
+        compte_charge_code, compte_fournisseur_code,
+        compte_tva_code=None, user=None, entreprise_id="",
+        date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("AC", "Achats", "ACHATS", entreprise_id)
+        cch = cls.get_compte(compte_charge_code, entreprise_id)
+        cf = cls.get_compte(compte_fournisseur_code, entreprise_id)
         ref = cls.generer_reference("AC")
+        montant_charge = montant_ht if compte_tva_code else montant_ttc
         lignes = [
-            {"compte": cch, "debit": montant_ht, "libelle": libelle},
+            {"compte": cch, "debit": montant_charge, "libelle": libelle},
             {"compte": cf, "credit": montant_ttc, "libelle": libelle},
         ]
         if montant_tva > 0 and compte_tva_code:
             lignes.append({
-                "compte": cls.get_compte(compte_tva_code),
+                "compte": cls.get_compte(compte_tva_code, entreprise_id),
                 "debit": montant_tva, "libelle": f"TVA {libelle}",
             })
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, lignes, user=user)
+        return cls.creer_ecriture(
+            ref, date_operation, libelle, journal, lignes,
+            user=user, entreprise_id=entreprise_id, **trace
+        )
 
     @classmethod
     @transaction.atomic
@@ -327,25 +343,33 @@ class EcritureService:
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_depot_banque(cls, compte_caisse_code, montant, libelle, user=None):
-        journal = cls.get_or_create_journal("BQ", "Banque", "BANQUE")
+    def creer_ecriture_depot_banque(
+        cls, compte_caisse_code, montant, libelle, user=None,
+        entreprise_id="", date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("BQ", "Banque", "BANQUE", entreprise_id)
         ref = cls.generer_reference("DB")
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, [
-            {"compte": cls.get_compte("521"), "debit": montant, "libelle": "Dépôt banque"},
-            {"compte": cls.get_compte(compte_caisse_code), "credit": montant,
-             "libelle": f"Dépôt depuis caisse"},
-        ], user=user)
+        return cls.creer_ecriture(ref, date_operation, libelle, journal, [
+            {"compte": cls.get_compte("521", entreprise_id), "debit": montant, "libelle": "Dépôt banque"},
+            {"compte": cls.get_compte(compte_caisse_code, entreprise_id), "credit": montant,
+             "libelle": "Dépôt depuis caisse"},
+        ], user=user, entreprise_id=entreprise_id, **trace)
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_retrait_banque(cls, compte_caisse_code, montant, libelle, user=None):
-        journal = cls.get_or_create_journal("BQ", "Banque", "BANQUE")
+    def creer_ecriture_retrait_banque(
+        cls, compte_caisse_code, montant, libelle, user=None,
+        entreprise_id="", date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("BQ", "Banque", "BANQUE", entreprise_id)
         ref = cls.generer_reference("RB")
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, [
-            {"compte": cls.get_compte(compte_caisse_code), "debit": montant,
-             "libelle": f"Retrait banque vers caisse"},
-            {"compte": cls.get_compte("521"), "credit": montant, "libelle": "Retrait banque"},
-        ], user=user)
+        return cls.creer_ecriture(ref, date_operation, libelle, journal, [
+            {"compte": cls.get_compte(compte_caisse_code, entreprise_id), "debit": montant,
+             "libelle": "Retrait banque vers caisse"},
+            {"compte": cls.get_compte("521", entreprise_id), "credit": montant, "libelle": "Retrait banque"},
+        ], user=user, entreprise_id=entreprise_id, **trace)
 
     # ─── Paie ─────────────────────────────────────────────────
 
