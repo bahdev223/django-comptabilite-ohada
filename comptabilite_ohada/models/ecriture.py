@@ -78,6 +78,10 @@ class EcritureComptable(models.Model):
         return f"{self.reference} - {self.date_ecriture} - {self.libelle[:60]}"
 
     def save(self, *args, **kwargs):
+        if self.pk is None and self.validee:
+            raise ValidationError(
+                "Une écriture doit être créée en brouillon puis validée explicitement."
+            )
         if self.pk:
             previous = type(self).objects.filter(pk=self.pk).values("validee").first()
             if previous and previous["validee"]:
@@ -137,6 +141,19 @@ class LigneEcritureComptable(models.Model):
         indexes = [
             models.Index(fields=["compte"]),
         ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(debit__gte=0, credit__gte=0),
+                name="ligne_montants_non_negatifs",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(debit__gt=0, credit=0)
+                    | models.Q(credit__gt=0, debit=0)
+                ),
+                name="ligne_exactement_un_sens",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.ecriture.reference} - {self.compte.code} - {self.debit or self.credit:,.0f}"
@@ -146,6 +163,7 @@ class LigneEcritureComptable(models.Model):
             raise ValidationError(
                 "Les lignes d'une écriture validée sont immuables."
             )
+        self.full_clean()
         return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
@@ -160,3 +178,5 @@ class LigneEcritureComptable(models.Model):
             raise ValidationError(_("Une ligne ne peut pas avoir débit ET crédit"))
         if self.debit < 0 or self.credit < 0:
             raise ValidationError(_("Les montants doivent être positifs"))
+        if not self.debit and not self.credit:
+            raise ValidationError(_("Une ligne doit avoir un débit ou un crédit"))
