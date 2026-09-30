@@ -50,7 +50,7 @@ class InitialisationService:
             )
             if created:
                 comptes_crees += 1
-                parents[code] = compte
+            parents[code] = compte
 
         for item in comptes_data:
             code = item["code"]
