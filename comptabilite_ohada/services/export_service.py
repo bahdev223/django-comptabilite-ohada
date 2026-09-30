@@ -14,13 +14,15 @@ class ExportService:
     """Export des états comptables (CSV, Excel, PDF)."""
 
     @staticmethod
-    def export_balance_csv(exercice=None):
+    def export_balance_csv(exercice=None, entreprise_id=""):
         import csv
         response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = "attachment; filename=balance.csv"
         writer = csv.writer(response)
         writer.writerow(["Code", "Compte", "Débit", "Crédit", "Solde"])
-        for ligne in BalanceService.balance(exercice):
+        for ligne in BalanceService.balance(
+            exercice=exercice, entreprise_id=entreprise_id
+        ):
             c = ligne["compte"]
             writer.writerow([
                 c.code,
@@ -32,14 +34,18 @@ class ExportService:
         return response
 
     @staticmethod
-    def export_grand_livre_csv(compte_code=None, exercice=None):
+    def export_grand_livre_csv(compte_code=None, exercice=None, entreprise_id=""):
         import csv
         from .journal_service import GrandLivreService
         response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = "attachment; filename=grand_livre.csv"
         writer = csv.writer(response)
         writer.writerow(["Date", "Référence", "Libellé", "Compte", "Débit", "Crédit"])
-        for l in GrandLivreService.grand_livre(compte_code, exercice):
+        for l in GrandLivreService.grand_livre(
+            compte_code=compte_code,
+            exercice=exercice,
+            entreprise_id=entreprise_id,
+        ):
             c = l["compte"]
             writer.writerow([
                 l["date"], l["reference"], l["libelle"],
@@ -49,10 +55,12 @@ class ExportService:
         return response
 
     @staticmethod
-    def export_bilan_csv(exercice=None):
+    def export_bilan_csv(exercice=None, entreprise_id=""):
         import csv
         from .bilan_service import BilanService
-        bilan = BilanService.bilan(exercice)
+        bilan = BilanService.bilan(
+            exercice=exercice, entreprise_id=entreprise_id
+        )
         response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = "attachment; filename=bilan.csv"
         writer = csv.writer(response)
@@ -75,13 +83,15 @@ class ExportService:
         return response
 
     @staticmethod
-    def export_ecritures_csv(exercice=None):
+    def export_ecritures_csv(exercice=None, entreprise_id=""):
         import csv
         response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = "attachment; filename=ecritures.csv"
         writer = csv.writer(response)
         writer.writerow(["Date", "Référence", "Journal", "Libellé", "Compte", "Débit", "Crédit", "Validée"])
-        qs = EcritureComptable.objects.select_related("journal").prefetch_related("lignes__compte")
+        qs = EcritureComptable.objects.filter(
+            entreprise_id=entreprise_id or ""
+        ).select_related("journal").prefetch_related("lignes__compte")
         if exercice:
             qs = qs.filter(exercice=exercice)
         for e in qs.order_by("date_ecriture"):
