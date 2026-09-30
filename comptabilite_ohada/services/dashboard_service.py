@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from ..models import CompteComptable, EcritureComptable, LigneEcritureComptable
 from ..models import ExerciceComptable
+from .bilan_service import BilanService
 
 
 class DashboardService:
@@ -41,8 +42,12 @@ class DashboardService:
         )
         solde_tresorerie = (tresorerie["debit"] or Decimal("0.00")) - (tresorerie["credit"] or Decimal("0.00"))
 
-        charges = base.filter(compte__code__startswith="6").aggregate(t=Sum("debit"))["t"] or Decimal("0.00")
-        produits = base.filter(compte__code__startswith="7").aggregate(t=Sum("credit"))["t"] or Decimal("0.00")
+        compte_resultat = BilanService.compte_resultat(
+            exercice=exercice,
+            entreprise_id=entreprise_id,
+        )
+        charges = compte_resultat["total_charges"]
+        produits = compte_resultat["total_produits"]
 
         nb_ecritures = EcritureComptable.objects.filter(
             validee=True, entreprise_id=entreprise_id or ""
@@ -132,8 +137,12 @@ class DashboardService:
 
     @staticmethod
     def exercice_courant(entreprise_id=""):
+        aujourd_hui = timezone.now().date()
         exercice = ExerciceComptable.objects.filter(
-            cloture=False, entreprise_id=entreprise_id or ""
+            cloture=False,
+            entreprise_id=entreprise_id or "",
+            date_debut__lte=aujourd_hui,
+            date_fin__gte=aujourd_hui,
         ).first()
         return str(exercice) if exercice else None
 
@@ -141,7 +150,8 @@ class DashboardService:
     def totaux_par_journal(entreprise_id=""):
         from django.db.models import Sum
         return EcritureComptable.objects.filter(
-            entreprise_id=entreprise_id or ""
+            entreprise_id=entreprise_id or "",
+            validee=True,
         ).values("journal__code").annotate(
             total=Sum("lignes__debit")
         ).order_by("journal__code")
