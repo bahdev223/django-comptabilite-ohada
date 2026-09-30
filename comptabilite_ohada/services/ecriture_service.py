@@ -163,10 +163,10 @@ class EcritureService:
             journal=journal,
             piece=piece,
             exercice=exercice,
-            validee=validee,
+            validee=False,
             created_by=user.username if hasattr(user, "username") and user else str(user or ""),
-            validated_by=(user.username if hasattr(user, "username") and user else str(user or "")) if validee else None,
-            date_validation=timezone.now() if validee else None,
+            validated_by=None,
+            date_validation=None,
             entreprise_id=entreprise_id or "",
             source_system=source_system or "",
             source_type=source_type or "",
@@ -191,6 +191,12 @@ class EcritureService:
                 AnalytiqueService.affecter_ligne(ligne_obj, dimensions)
 
         if validee:
+            ecriture.validee = True
+            ecriture.date_validation = timezone.now()
+            ecriture.validated_by = (
+                user.username if hasattr(user, "username") and user else str(user or "")
+            )
+            ecriture.save(update_fields=["validee", "date_validation", "validated_by"])
             ecriture_validee.send(
                 sender=EcritureService,
                 instance=ecriture,
