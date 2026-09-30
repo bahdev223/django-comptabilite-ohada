@@ -17,6 +17,8 @@ from .models import (
     AffectationAnalytique,
     EvenementMetier,
     RegleEvenementComptable,
+    OrganisationComptable,
+    AccesEntrepriseComptable,
 )
 
 
@@ -89,3 +91,17 @@ class RegleEvenementComptableAdmin(admin.ModelAdmin):
 
 
 admin.site.register(AffectationAnalytique)
+
+
+@admin.register(OrganisationComptable)
+class OrganisationComptableAdmin(admin.ModelAdmin):
+    list_display = ("code", "nom", "actif", "created_at")
+    list_filter = ("actif",)
+    search_fields = ("code", "nom")
+
+
+@admin.register(AccesEntrepriseComptable)
+class AccesEntrepriseComptableAdmin(admin.ModelAdmin):
+    list_display = ("user", "entreprise", "role", "actif")
+    list_filter = ("role", "actif", "entreprise")
+    search_fields = ("user__username", "entreprise__code", "entreprise__nom")
