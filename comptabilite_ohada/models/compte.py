@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -43,7 +44,7 @@ class CompteComptable(models.Model):
     nature = models.CharField(_("Nature"), max_length=10, choices=NatureCompte.choices)
     sens = models.CharField(_("Sens"), max_length=10, choices=SensCompte.choices)
     parent = models.ForeignKey(
-        "self", on_delete=models.CASCADE, null=True, blank=True,
+        "self", on_delete=models.PROTECT, null=True, blank=True,
         related_name="enfants", verbose_name=_("Compte parent"),
     )
     niveau = models.IntegerField(_("Niveau"), default=1)
@@ -79,6 +80,19 @@ class CompteComptable(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.libelle}"
+
+    def clean(self):
+        if self.parent_id:
+            if self.parent_id == self.pk:
+                raise ValidationError("Un compte ne peut pas être son propre parent.")
+            if (self.parent.entreprise_id or "") != (self.entreprise_id or ""):
+                raise ValidationError(
+                    "Le compte parent doit appartenir à la même entreprise."
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     @property
     def classe(self):
