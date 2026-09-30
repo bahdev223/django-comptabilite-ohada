@@ -464,20 +464,39 @@ class EcritureService:
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_acquisition_immo(cls, montant, libelle, compte_immo_code,
-                                        compte_tiers_code=None, compte_caisse_code=None, user=None):
-        journal = cls.get_or_create_journal("INV", "Investissements", "ACHATS")
+    def creer_ecriture_acquisition_immo(
+        cls, montant, libelle, compte_immo_code,
+        compte_tiers_code=None, compte_caisse_code=None, user=None,
+        entreprise_id="", date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("INV", "Investissements", "IMMO", entreprise_id)
         ref = cls.generer_reference("ACQ")
         lignes = [
-            {"compte": cls.get_compte(compte_immo_code), "debit": montant, "libelle": libelle},
+            {"compte": cls.get_compte(compte_immo_code, entreprise_id), "debit": montant, "libelle": libelle},
         ]
         if compte_caisse_code:
-            lignes.append({"compte": cls.get_compte(compte_caisse_code), "credit": montant, "libelle": libelle})
+            lignes.append({
+                "compte": cls.get_compte(compte_caisse_code, entreprise_id),
+                "credit": montant,
+                "libelle": libelle,
+            })
         elif compte_tiers_code:
-            lignes.append({"compte": cls.get_compte(compte_tiers_code), "credit": montant, "libelle": libelle})
+            lignes.append({
+                "compte": cls.get_compte(compte_tiers_code, entreprise_id),
+                "credit": montant,
+                "libelle": libelle,
+            })
         else:
-            lignes.append({"compte": cls.get_compte("404"), "credit": montant, "libelle": libelle})
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, lignes, user=user)
+            lignes.append({
+                "compte": cls.get_compte("404", entreprise_id),
+                "credit": montant,
+                "libelle": libelle,
+            })
+        return cls.creer_ecriture(
+            ref, date_operation, libelle, journal, lignes,
+            user=user, entreprise_id=entreprise_id, **trace
+        )
 
     @classmethod
     @transaction.atomic
@@ -503,14 +522,18 @@ class EcritureService:
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_regularisation(cls, montant, libelle, compte_debit_code,
-                                      compte_credit_code, user=None):
-        journal = cls.get_or_create_journal("OD", "Opérations Diverses", "OD")
+    def creer_ecriture_regularisation(
+        cls, montant, libelle, compte_debit_code,
+        compte_credit_code, user=None, entreprise_id="",
+        date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("OD", "Opérations Diverses", "OD", entreprise_id)
         ref = cls.generer_reference("RG")
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, [
-            {"compte": cls.get_compte(compte_debit_code), "debit": montant, "libelle": libelle},
-            {"compte": cls.get_compte(compte_credit_code), "credit": montant, "libelle": libelle},
-        ], user=user)
+        return cls.creer_ecriture(ref, date_operation, libelle, journal, [
+            {"compte": cls.get_compte(compte_debit_code, entreprise_id), "debit": montant, "libelle": libelle},
+            {"compte": cls.get_compte(compte_credit_code, entreprise_id), "credit": montant, "libelle": libelle},
+        ], user=user, entreprise_id=entreprise_id, **trace)
 
     @classmethod
     @transaction.atomic
