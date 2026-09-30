@@ -325,6 +325,22 @@ class EvenementMetierViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet
             return EvenementIngestSerializer
         return EvenementMetierSerializer
 
+    @action(detail=True, methods=["post"])
+    def retry(self, request, pk=None):
+        evenement = self.get_object()
+        evenement = EvenementService.retraiter(
+            evenement, user=request.user
+        )
+        output = EvenementMetierSerializer(
+            evenement, context={"request": request}
+        )
+        if evenement.statut == "ERREUR":
+            return Response(
+                output.data,
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+        return Response(output.data, status=status.HTTP_200_OK)
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
