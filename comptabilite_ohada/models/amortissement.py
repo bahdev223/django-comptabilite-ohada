@@ -14,7 +14,8 @@ class Immobilisation(models.Model):
         ("FINANCIERE", _("Immobilisation financière")),
     ]
 
-    code = models.CharField(_("Code"), max_length=20, unique=True)
+    entreprise_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
+    code = models.CharField(_("Code"), max_length=20)
     libelle = models.CharField(_("Libellé"), max_length=200)
     type_immobilisation = models.CharField(
         _("Type"), max_length=20, choices=TYPE_CHOICES,
@@ -49,6 +50,7 @@ class Immobilisation(models.Model):
         verbose_name = _("Immobilisation")
         verbose_name_plural = _("Immobilisations")
         ordering = ["code"]
+        unique_together = [["entreprise_id", "code"]]
 
     def __str__(self):
         return f"{self.code} - {self.libelle}"
