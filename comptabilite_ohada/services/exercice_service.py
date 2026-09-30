@@ -15,9 +15,10 @@ class ExerciceService:
     """Gestion des exercices comptables."""
 
     @staticmethod
-    def creer(code, date_debut, date_fin):
+    def creer(code, date_debut, date_fin, entreprise_id=""):
         return ExerciceComptable.objects.create(
             code=code, date_debut=date_debut, date_fin=date_fin,
+            entreprise_id=entreprise_id or "",
         )
 
     @staticmethod
@@ -100,10 +101,11 @@ class ValidationService:
             })
         EcritureService.creer_ecriture(
             reference=ref,
-            date_ecriture=timezone.now().date(),
+            date_ecriture=ecriture.date_ecriture,
             libelle=f"Annulation de {ecriture.reference} - {raison}",
             journal=journal,
             lignes=lignes_inversees,
             exercice=ecriture.exercice,
             user=user,
+            entreprise_id=ecriture.entreprise_id,
         )
