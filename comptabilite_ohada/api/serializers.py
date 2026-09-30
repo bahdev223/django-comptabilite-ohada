@@ -61,6 +61,11 @@ class EcritureComptableSerializer(serializers.ModelSerializer):
     class Meta:
         model = EcritureComptable
         fields = "__all__"
+        read_only_fields = [
+            "entreprise_id", "validee", "date_validation", "validated_by",
+            "created_at", "created_by", "reversal_of", "idempotency_key",
+            "source_system", "source_type", "source_id", "source_reference",
+        ]
 
 
 class EcritureCreateSerializer(serializers.ModelSerializer):
@@ -71,7 +76,7 @@ class EcritureCreateSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = [
             "entreprise_id", "created_at", "created_by", "validated_by",
-            "date_validation", "reversal_of",
+            "date_validation", "reversal_of", "validee",
         ]
 
     def create(self, validated_data):
@@ -86,7 +91,7 @@ class EcritureCreateSerializer(serializers.ModelSerializer):
             lignes=lignes,
             exercice=validated_data.get("exercice"),
             piece=validated_data.get("piece"),
-            validee=validated_data.get("validee", False),
+            validee=False,
             user=user,
             entreprise_id=str(getattr(user, "entreprise_id", "") or ""),
             source_system=validated_data.get("source_system", ""),
