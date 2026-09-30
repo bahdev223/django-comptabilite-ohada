@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from ..permissions import AccountingTenantPermission
 from ..tenant import resolve_entreprise_id
 from django_filters import rest_framework as filters
@@ -98,6 +99,24 @@ class EcritureComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewS
         if self.action == "create":
             return EcritureCreateSerializer
         return EcritureComptableSerializer
+
+    def _ensure_mutable(self, ecriture):
+        if ecriture.validee:
+            raise DRFValidationError(
+                "Une écriture validée est immuable. Utilisez une contre-passation."
+            )
+
+    def update(self, request, *args, **kwargs):
+        self._ensure_mutable(self.get_object())
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        self._ensure_mutable(self.get_object())
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        self._ensure_mutable(self.get_object())
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"])
     def valider(self, request, pk=None):
