@@ -9,6 +9,7 @@ from ..models import ExerciceComptable, ConfigurationComptable, EcritureComptabl
 from ..models import CompteComptable, LigneEcritureComptable
 from ..signals.ecriture import exercice_cloture
 from .ecriture_service import EcritureService
+from .bilan_service import BilanService
 
 
 class ExerciceService:
@@ -33,19 +34,17 @@ class ExerciceService:
             if not e.est_equilibree:
                 raise ValueError(f"Écriture {e.reference} déséquilibrée")
 
-        # Calculer le résultat
-        lignes = LigneEcritureComptable.objects.filter(ecriture__in=ecritures)
-        total_charges = lignes.filter(compte__code__startswith="6").aggregate(
-            t=Sum("debit")
-        )["t"] or Decimal("0.00")
-        total_produits = lignes.filter(compte__code__startswith="7").aggregate(
-            t=Sum("credit")
-        )["t"] or Decimal("0.00")
-        resultat = total_produits - total_charges
+        resultat = BilanService.compte_resultat(
+            exercice=exercice,
+            entreprise_id=exercice.entreprise_id,
+        )["resultat_net"]
 
-        # Un résultat nul ne doit pas produire une écriture à montant nul.
-        if resultat != Decimal("0.00"):
-            EcritureService.creer_ecriture_cloture_exercice(exercice, resultat, user=user)
+        # Même avec un résultat net nul, les comptes 6/7/8 ayant mouvement
+        # doivent être soldés.
+        EcritureService.creer_ecriture_cloture_exercice(
+            exercice,
+            user=user,
+        )
 
         exercice.cloture = True
         exercice.date_cloture = timezone.now().date()
