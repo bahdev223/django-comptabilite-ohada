@@ -76,7 +76,9 @@ class AnalytiqueService:
             affectation, _ = AffectationAnalytique.objects.update_or_create(
                 ligne=ligne,
                 dimension=dimension,
-                defaults={"valeur": valeur},
+                valeur=valeur,
+                defaults={"pourcentage": raw_value.get("pourcentage", 100) if isinstance(raw_value, dict) else 100,
+                          "montant": raw_value.get("montant") if isinstance(raw_value, dict) else None},
             )
             affectations.append(affectation)
 
