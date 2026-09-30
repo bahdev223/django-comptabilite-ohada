@@ -122,7 +122,7 @@ class ValidationService:
                 "credit": l.debit,
                 "libelle": f"ANNULATION - {l.libelle or ecriture.libelle}",
             })
-        EcritureService.creer_ecriture(
+        return EcritureService.creer_ecriture(
             reference=ref,
             date_ecriture=ecriture.date_ecriture,
             libelle=f"Annulation de {ecriture.reference} - {raison}",
