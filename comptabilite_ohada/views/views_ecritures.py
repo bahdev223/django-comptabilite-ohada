@@ -5,7 +5,11 @@ from django.shortcuts import redirect
 from django.contrib import messages
 
 from ..models import EcritureComptable
-from ..services.ecriture_service import EcritureService
+from ..services.exercice_service import ValidationService
+
+
+def _entreprise_id(request):
+    return str(getattr(request.user, "entreprise_id", "") or "")
 
 
 class EcritureListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -16,7 +20,9 @@ class EcritureListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("journal", "exercice")
+        qs = super().get_queryset().filter(
+            entreprise_id=_entreprise_id(self.request)
+        ).select_related("journal", "exercice")
         qs = qs.prefetch_related("lignes__compte")
         status = self.request.GET.get("status")
         if status == "validee":
@@ -32,6 +38,9 @@ class EcritureDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
     context_object_name = "ecriture"
     permission_required = "comptabilite_ohada.view_ecriturecomptable"
 
+    def get_queryset(self):
+        return super().get_queryset().filter(entreprise_id=_entreprise_id(self.request))
+
 
 class EcritureCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = EcritureComptable
@@ -40,7 +49,23 @@ class EcritureCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView
     permission_required = "comptabilite_ohada.add_ecriturecomptable"
 
     def form_valid(self, form):
+        entreprise_id = _entreprise_id(self.request)
+        if (form.cleaned_data["journal"].entreprise_id or "") != entreprise_id:
+            form.add_error("journal", "Ce journal appartient à une autre entreprise.")
+            return self.form_invalid(form)
+        exercice = form.cleaned_data["exercice"]
+        if (exercice.entreprise_id or "") != entreprise_id:
+            form.add_error("exercice", "Cet exercice appartient à une autre entreprise.")
+            return self.form_invalid(form)
+        if exercice.cloture:
+            form.add_error("exercice", "Cet exercice est clôturé.")
+            return self.form_invalid(form)
+        date_ecriture = form.cleaned_data["date_ecriture"]
+        if not (exercice.date_debut <= date_ecriture <= exercice.date_fin):
+            form.add_error("date_ecriture", "La date est hors de la période de l'exercice.")
+            return self.form_invalid(form)
         form.instance.created_by = self.request.user.get_username()
+        form.instance.entreprise_id = entreprise_id
         messages.success(self.request, "Écriture créée avec succès.")
         return super().form_valid(form)
 
@@ -55,7 +80,9 @@ class EcritureUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
     permission_required = "comptabilite_ohada.change_ecriturecomptable"
 
     def get_queryset(self):
-        return super().get_queryset().filter(validee=False)
+        return super().get_queryset().filter(
+            validee=False, entreprise_id=_entreprise_id(self.request)
+        )
 
     def form_valid(self, form):
         messages.success(self.request, "Écriture modifiée avec succès.")
@@ -72,7 +99,9 @@ class EcritureDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView
     permission_required = "comptabilite_ohada.delete_ecriturecomptable"
 
     def get_queryset(self):
-        return super().get_queryset().filter(validee=False)
+        return super().get_queryset().filter(
+            validee=False, entreprise_id=_entreprise_id(self.request)
+        )
 
     def delete(self, request, *args, **kwargs):
         messages.success(request, "Écriture supprimée avec succès.")
@@ -83,10 +112,13 @@ class EcritureValiderView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
     model = EcritureComptable
     permission_required = "comptabilite_ohada.change_ecriturecomptable"
 
+    def get_queryset(self):
+        return super().get_queryset().filter(entreprise_id=_entreprise_id(self.request))
+
     def post(self, request, *args, **kwargs):
         ecriture = self.get_object()
         try:
-            EcritureService.valider_ecriture(ecriture, request.user)
+            ValidationService.valider_ecriture(ecriture, request.user)
             messages.success(request, "Écriture validée avec succès.")
         except Exception as e:
             messages.error(request, str(e))
