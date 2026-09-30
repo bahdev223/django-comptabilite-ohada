@@ -109,8 +109,30 @@ class BilanService:
         actif.sort(key=lambda x: x["compte"].code)
         passif.sort(key=lambda x: x["compte"].code)
 
+        resultat_courant = None
+        if exercice:
+            from ..models import EcritureComptable
+
+            clotures = EcritureComptable.objects.filter(
+                exercice=exercice,
+                validee=True,
+                source_type="fiscal_closure",
+                source_id=str(exercice.pk),
+            )
+            cloture_active = any(
+                not ecriture.reversals.filter(validee=True).exists()
+                for ecriture in clotures
+            )
+            if not cloture_active:
+                resultat_courant = BilanService.compte_resultat(
+                    exercice=exercice,
+                    entreprise_id=entreprise_id,
+                )["resultat_net"]
+
         total_actif = sum((x["montant"] for x in actif), Decimal("0.00"))
         total_passif = sum((x["montant"] for x in passif), Decimal("0.00"))
+        if resultat_courant is not None:
+            total_passif += resultat_courant
 
         return {
             "actif": [
@@ -128,7 +150,15 @@ class BilanService:
                     "montant": x["montant"],
                 }
                 for x in passif
-            ],
+            ] + (
+                [{
+                    "code": "RESULTAT_COURANT",
+                    "libelle": "Résultat courant de l'exercice",
+                    "montant": resultat_courant,
+                }]
+                if resultat_courant is not None and resultat_courant != 0
+                else []
+            ),
             "total_actif": total_actif,
             "total_passif": total_passif,
             "ecart": total_actif - total_passif,
