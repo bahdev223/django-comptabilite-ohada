@@ -16,6 +16,7 @@ from ..models import (
     DimensionAnalytique, ValeurAnalytique,
     EvenementMetier, RegleEvenementComptable,
     OrganisationComptable,
+    ReleveBancaire,
 )
 from ..services.ecriture_service import EcritureService
 from ..services.journal_service import BalanceService, GrandLivreService
@@ -23,6 +24,7 @@ from ..services.bilan_service import BilanService
 from ..services.exercice_service import ExerciceService, ValidationService
 from ..services.amortissement_service import AmortissementService
 from ..services.evenement_service import EvenementService
+from ..services.rapprochement_service import RapprochementService
 from .serializers import (
     CompteComptableSerializer, EcritureComptableSerializer,
     EcritureCreateSerializer, JournalComptableSerializer,
@@ -32,6 +34,8 @@ from .serializers import (
     RegleEvenementComptableSerializer, EvenementMetierSerializer,
     EvenementIngestSerializer,
     OrganisationComptableSerializer,
+    ReleveBancaireSerializer,
+    LigneReleveBancaireSerializer,
 )
 
 
@@ -245,6 +249,72 @@ class ConfigurationComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.Model
     permission_classes = [IsAuthenticated, AccountingTenantPermission]
     queryset = ConfigurationComptable.objects.all()
     serializer_class = ConfigurationComptableSerializer
+
+
+class ReleveBancaireViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated, AccountingTenantPermission]
+    queryset = ReleveBancaire.objects.prefetch_related("lignes").all()
+    serializer_class = ReleveBancaireSerializer
+    filterset_fields = ["compte_comptable_code", "statut"]
+    search_fields = ["compte_comptable_code"]
+
+    def _ensure_mutable(self, releve):
+        if releve.statut == "RAPPROCHE":
+            raise DRFValidationError("Un relevé rapproché est verrouillé.")
+
+    def update(self, request, *args, **kwargs):
+        self._ensure_mutable(self.get_object())
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        self._ensure_mutable(self.get_object())
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        self._ensure_mutable(self.get_object())
+        return super().destroy(request, *args, **kwargs)
+
+    @action(detail=True, methods=["post"], url_path="lignes")
+    def ajouter_ligne(self, request, pk=None):
+        releve = self.get_object()
+        serializer = LigneReleveBancaireSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ligne = RapprochementService.ajouter_ligne(
+            releve=releve,
+            date_operation=serializer.validated_data["date_operation"],
+            libelle=serializer.validated_data["libelle"],
+            montant=serializer.validated_data["montant"],
+            sens=serializer.validated_data["sens"],
+            reference=serializer.validated_data.get("reference", ""),
+        )
+        return Response(
+            LigneReleveBancaireSerializer(ligne).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["post"])
+    def pointer(self, request, pk=None):
+        releve = self.get_object()
+        ligne_id = request.data.get("ligne_id")
+        if not ligne_id:
+            raise DRFValidationError("ligne_id est obligatoire.")
+        RapprochementService.pointer(releve, ligne_id)
+        return Response({"status": "pointé"})
+
+    @action(detail=True, methods=["post"])
+    def depointer(self, request, pk=None):
+        releve = self.get_object()
+        ligne_id = request.data.get("ligne_id")
+        if not ligne_id:
+            raise DRFValidationError("ligne_id est obligatoire.")
+        RapprochementService.depointer(releve, ligne_id)
+        return Response({"status": "dépointé"})
+
+    @action(detail=True, methods=["post"])
+    def valider(self, request, pk=None):
+        releve = self.get_object()
+        RapprochementService.valider(releve, request.user)
+        return Response({"status": "rapproché"})
 
 
 class ImmobilisationViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
