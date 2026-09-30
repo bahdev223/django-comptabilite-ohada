@@ -9,7 +9,14 @@ from ..models import (
     Immobilisation, PlanAmortissement,
     DimensionAnalytique, ValeurAnalytique, AffectationAnalytique,
     EvenementMetier, RegleEvenementComptable,
+    OrganisationComptable,
 )
+
+
+class OrganisationComptableSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrganisationComptable
+        fields = ["id", "code", "nom", "actif", "metadata"]
 
 
 class CompteComptableSerializer(serializers.ModelSerializer):
