@@ -21,6 +21,7 @@ JOURNAUX_PAR_CODE = {
     "ST": ("Stock", "STOCK"),
     "INV": ("Immobilisations", "IMMO"),
     "OD": ("Opérations diverses", "OD"),
+    "CL": ("Clôture", "OD"),
 }
 
 
@@ -29,12 +30,10 @@ class EvenementService:
 
     @staticmethod
     def _payload_stockable(payload):
-        """Convertit dates/Decimal vers une représentation JSON stable pour l'audit."""
         return json.loads(json.dumps(payload or {}, cls=DjangoJSONEncoder))
 
     @staticmethod
     def _contexte_regle(payload):
-        """Normalise les types courants reçus depuis une API JSON."""
         contexte = dict(payload or {})
         if isinstance(contexte.get("date"), str):
             parsed = parse_date(contexte["date"])
@@ -46,6 +45,7 @@ class EvenementService:
 
     @staticmethod
     def _regle_pour(entreprise_id, type_evenement):
+        # Une règle spécifique entreprise prime sur une règle globale.
         regle = RegleEvenementComptable.objects.filter(
             entreprise_id=entreprise_id or "",
             type_evenement=type_evenement,
@@ -58,6 +58,108 @@ class EvenementService:
             type_evenement=type_evenement,
             actif=True,
         ).first()
+
+    @classmethod
+    def _traiter(cls, evenement, user=None):
+        entreprise_id = evenement.entreprise_id or ""
+        regle_mapping = cls._regle_pour(
+            entreprise_id, evenement.type_evenement
+        )
+        if regle_mapping is None:
+            evenement.statut = "IGNORE"
+            evenement.erreur = ""
+            evenement.processed_at = timezone.now()
+            evenement.save(update_fields=["statut", "erreur", "processed_at"])
+            return evenement
+
+        try:
+            with transaction.atomic():
+                contexte = cls._contexte_regle(evenement.payload)
+                # La configuration comptable est administrée côté moteur et
+                # prime sur les valeurs métier pour les comptes/journaux.
+                contexte.update(regle_mapping.configuration or {})
+
+                resultats = moteur.appliquer(
+                    regle_mapping.code_regle, **contexte
+                )
+                if not resultats:
+                    evenement.statut = "IGNORE"
+                    evenement.erreur = ""
+                    evenement.processed_at = timezone.now()
+                    evenement.save(
+                        update_fields=["statut", "erreur", "processed_at"]
+                    )
+                    return evenement
+
+                resultat = resultats[0]
+                journal_libelle, journal_type = JOURNAUX_PAR_CODE.get(
+                    resultat.journal_code,
+                    (resultat.journal_code, "OD"),
+                )
+                journal = EcritureService.get_or_create_journal(
+                    resultat.journal_code,
+                    journal_libelle,
+                    journal_type,
+                    entreprise_id,
+                )
+
+                dimensions_globales = contexte.get("dimensions") or {}
+                lignes = []
+                for ligne in resultat.lignes:
+                    lignes.append({
+                        "compte": EcritureService.get_compte(
+                            ligne.compte_code, entreprise_id
+                        ),
+                        "debit": ligne.debit,
+                        "credit": ligne.credit,
+                        "libelle": ligne.libelle or resultat.libelle,
+                        "dimensions": ligne.dimensions or dimensions_globales,
+                    })
+
+                ecriture = EcritureService.creer_ecriture(
+                    reference=resultat.reference,
+                    date_ecriture=resultat.date_ecriture,
+                    libelle=resultat.libelle,
+                    journal=journal,
+                    lignes=lignes,
+                    user=user,
+                    entreprise_id=entreprise_id,
+                    source_system=evenement.source_system,
+                    source_type=(
+                        evenement.source_type
+                        or evenement.type_evenement
+                    ),
+                    source_id=str(evenement.source_id or ""),
+                    source_reference=str(
+                        contexte.get("source_reference") or ""
+                    ),
+                    idempotency_key=evenement.idempotency_key,
+                    metadata={
+                        "event_type": evenement.type_evenement,
+                        "event_id": evenement.pk,
+                    },
+                )
+
+                evenement.ecriture = ecriture
+                evenement.statut = "TRAITE"
+                evenement.erreur = ""
+                evenement.processed_at = timezone.now()
+                evenement.save(
+                    update_fields=[
+                        "ecriture", "statut", "erreur", "processed_at"
+                    ]
+                )
+            return evenement
+        except Exception as exc:
+            # L'inbox conserve l'échec alors que la transaction comptable
+            # est rollbackée : audit et reprise restent possibles.
+            evenement.statut = "ERREUR"
+            evenement.erreur = str(exc)
+            evenement.processed_at = timezone.now()
+            evenement.save(
+                update_fields=["statut", "erreur", "processed_at"]
+            )
+            return evenement
 
     @classmethod
     def recevoir(
@@ -87,76 +189,17 @@ class EvenementService:
         if not created:
             return evenement, False
 
-        regle_mapping = cls._regle_pour(entreprise_id, type_evenement)
-        if regle_mapping is None:
-            evenement.statut = "IGNORE"
-            evenement.processed_at = timezone.now()
-            evenement.save(update_fields=["statut", "processed_at"])
-            return evenement, True
+        return cls._traiter(evenement, user=user), True
 
-        try:
-            with transaction.atomic():
-                contexte = cls._contexte_regle(payload)
-                contexte.update(regle_mapping.configuration or {})
-                resultats = moteur.appliquer(regle_mapping.code_regle, **contexte)
-                if not resultats:
-                    evenement.statut = "IGNORE"
-                    evenement.processed_at = timezone.now()
-                    evenement.save(update_fields=["statut", "processed_at"])
-                    return evenement, True
-
-                resultat = resultats[0]
-                journal_libelle, journal_type = JOURNAUX_PAR_CODE.get(
-                    resultat.journal_code,
-                    (resultat.journal_code, "OD"),
-                )
-                journal = EcritureService.get_or_create_journal(
-                    resultat.journal_code,
-                    journal_libelle,
-                    journal_type,
-                    entreprise_id,
-                )
-
-                dimensions = contexte.get("dimensions") or {}
-                lignes = []
-                for ligne in resultat.lignes:
-                    lignes.append({
-                        "compte": EcritureService.get_compte(ligne.compte_code, entreprise_id),
-                        "debit": ligne.debit,
-                        "credit": ligne.credit,
-                        "libelle": ligne.libelle or resultat.libelle,
-                        "dimensions": ligne.dimensions or dimensions,
-                    })
-
-                ecriture = EcritureService.creer_ecriture(
-                    reference=resultat.reference,
-                    date_ecriture=resultat.date_ecriture,
-                    libelle=resultat.libelle,
-                    journal=journal,
-                    lignes=lignes,
-                    user=user,
-                    entreprise_id=entreprise_id,
-                    source_system=source_system,
-                    source_type=source_type or type_evenement,
-                    source_id=str(source_id or ""),
-                    source_reference=str(contexte.get("source_reference") or ""),
-                    idempotency_key=idempotency_key,
-                    metadata={
-                        "event_type": type_evenement,
-                        "event_id": evenement.pk,
-                    },
-                )
-
-                evenement.ecriture = ecriture
-                evenement.statut = "TRAITE"
-                evenement.processed_at = timezone.now()
-                evenement.save(update_fields=["ecriture", "statut", "processed_at"])
-            return evenement, True
-        except Exception as exc:
-            # L'inbox doit conserver l'échec même si la transaction comptable
-            # a été annulée, afin de permettre audit et reprise explicite.
-            evenement.statut = "ERREUR"
-            evenement.erreur = str(exc)
-            evenement.processed_at = timezone.now()
-            evenement.save(update_fields=["statut", "erreur", "processed_at"])
-            return evenement, True
+    @classmethod
+    def retraiter(cls, evenement, user=None):
+        """Rejoue explicitement un événement IGNORE/ERREUR après correction."""
+        if evenement.statut == "TRAITE":
+            return evenement
+        evenement.erreur = ""
+        evenement.statut = "RECU"
+        evenement.processed_at = None
+        evenement.save(
+            update_fields=["erreur", "statut", "processed_at"]
+        )
+        return cls._traiter(evenement, user=user)
