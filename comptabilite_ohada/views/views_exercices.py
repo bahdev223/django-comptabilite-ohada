@@ -71,7 +71,7 @@ class ExerciceRouvrirView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
     def post(self, request, *args, **kwargs):
         exercice = self.get_object()
         try:
-            ExerciceService.rouvrir(exercice)
+            ExerciceService.rouvrir(exercice, request.user)
             messages.success(request, "Exercice rouvert avec succès.")
         except Exception as e:
             messages.error(request, str(e))
