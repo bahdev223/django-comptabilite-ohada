@@ -68,7 +68,7 @@ class CompteComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet
 
 
 class EcritureComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, AccountingTenantPermission]
     queryset = EcritureComptable.objects.prefetch_related("lignes__compte").all()
     filterset_fields = ["validee", "journal", "exercice", "entreprise_id"]
     search_fields = ["reference", "libelle"]
@@ -147,7 +147,7 @@ class EcritureComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewS
 
 
 class JournalComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, AccountingTenantPermission]
     queryset = JournalComptable.objects.all()
     serializer_class = JournalComptableSerializer
     filterset_fields = ["code", "actif"]
@@ -166,7 +166,7 @@ class JournalComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSe
 
 
 class ExerciceComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, AccountingTenantPermission]
     queryset = ExerciceComptable.objects.all()
     serializer_class = ExerciceComptableSerializer
     filterset_fields = ["cloture", "entreprise_id"]
@@ -192,13 +192,13 @@ class ExerciceComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewS
 
 
 class ConfigurationComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, AccountingTenantPermission]
     queryset = ConfigurationComptable.objects.all()
     serializer_class = ConfigurationComptableSerializer
 
 
 class ImmobilisationViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, AccountingTenantPermission]
     queryset = Immobilisation.objects.prefetch_related("plan_amortissement").all()
     serializer_class = ImmobilisationSerializer
     filterset_fields = ["statut", "type_immobilisation", "entreprise_id"]
@@ -225,7 +225,7 @@ class ImmobilisationViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet)
 
 
 class DimensionAnalytiqueViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, AccountingTenantPermission]
     queryset = DimensionAnalytique.objects.all()
     serializer_class = DimensionAnalytiqueSerializer
     filterset_fields = ["code", "actif"]
@@ -233,7 +233,7 @@ class DimensionAnalytiqueViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelVie
 
 
 class ValeurAnalytiqueViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, AccountingTenantPermission]
     serializer_class = ValeurAnalytiqueSerializer
     filterset_fields = ["dimension", "code", "external_id", "actif"]
     search_fields = ["code", "libelle", "external_id"]
@@ -255,7 +255,7 @@ class ValeurAnalytiqueViewSet(viewsets.ModelViewSet):
 
 
 class RegleEvenementComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, AccountingTenantPermission]
     queryset = RegleEvenementComptable.objects.all()
     serializer_class = RegleEvenementComptableSerializer
     filterset_fields = ["type_evenement", "code_regle", "actif"]
@@ -263,7 +263,7 @@ class RegleEvenementComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.Mode
 
 
 class EvenementMetierViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, AccountingTenantPermission]
     queryset = EvenementMetier.objects.select_related("ecriture").all()
     serializer_class = EvenementMetierSerializer
     http_method_names = ["get", "post", "head", "options"]
