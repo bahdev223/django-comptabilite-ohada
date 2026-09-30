@@ -1,5 +1,8 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
+from ..services.ecriture_service import EcritureService
 from ..models import (
     CompteComptable, EcritureComptable, LigneEcritureComptable,
     JournalComptable, ExerciceComptable, ConfigurationComptable,
@@ -20,7 +23,7 @@ class LigneEcritureComptableSerializer(serializers.ModelSerializer):
     class Meta:
         model = LigneEcritureComptable
         fields = ["id", "compte", "compte_code", "compte_libelle", "libelle",
-                   "debit", "credit", "sens"]
+                   "debit", "credit"]
 
 
 class EcritureComptableSerializer(serializers.ModelSerializer):
@@ -41,22 +44,33 @@ class EcritureCreateSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def create(self, validated_data):
-        lignes_data = validated_data.pop("lignes")
-        ecriture = EcritureComptable.objects.create(**validated_data)
-        for ligne_data in lignes_data:
-            LigneEcritureComptable.objects.create(ecriture=ecriture, **ligne_data)
-        return ecriture
+        lignes = validated_data.pop("lignes")
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        return EcritureService.creer_ecriture(
+            reference=validated_data["reference"],
+            date_ecriture=validated_data["date_ecriture"],
+            libelle=validated_data["libelle"],
+            journal=validated_data["journal"],
+            lignes=lignes,
+            exercice=validated_data.get("exercice"),
+            piece=validated_data.get("piece"),
+            validee=validated_data.get("validee", False),
+            user=user,
+            entreprise_id=validated_data.get("entreprise_id", ""),
+        )
 
     def validate(self, data):
-        """Vérifie que l'écriture est équilibrée."""
+        """Valide les invariants simples avant le service de domaine."""
         lignes = data.get("lignes", [])
-        total_debit = sum(float(l.get("debit", 0) or 0) for l in lignes)
-        total_credit = sum(float(l.get("credit", 0) or 0) for l in lignes)
-        if abs(total_debit - total_credit) > 0.01:
+        total_debit = sum((Decimal(str(l.get("debit", 0) or 0)) for l in lignes), Decimal("0.00"))
+        total_credit = sum((Decimal(str(l.get("credit", 0) or 0)) for l in lignes), Decimal("0.00"))
+        if total_debit != total_credit:
             raise serializers.ValidationError(
-                "L'écriture n'est pas équilibrée : "
-                f"débit={total_debit:.2f}, crédit={total_credit:.2f}"
+                f"L'écriture n'est pas équilibrée : débit={total_debit}, crédit={total_credit}"
             )
+        if total_debit == 0:
+            raise serializers.ValidationError("Une écriture sans montant est interdite.")
         return data
 
 
