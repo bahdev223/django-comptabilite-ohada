@@ -22,4 +22,4 @@ class InitialisationServiceTest(TestCase):
         self.assertTrue(result.get("success"))
         self.assertGreater(CompteComptable.objects.count(), 50)
         compte = CompteComptable.objects.get(code="571")
-        self.assertEqual(compte.libelle, "Caisse")
+        self.assertEqual(compte.libelle, "Caisse siège social")
