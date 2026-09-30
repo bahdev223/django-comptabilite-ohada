@@ -206,7 +206,7 @@ class ExerciceComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewS
     def rouvrir(self, request, pk=None):
         exercice = self.get_object()
         try:
-            ExerciceService.rouvrir(exercice)
+            ExerciceService.rouvrir(exercice, request.user)
             return Response({"status": "rouvert"})
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -311,6 +311,8 @@ class EvenementMetierViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet
             user=request.user,
         )
         output = EvenementMetierSerializer(evenement, context={"request": request})
+        if evenement.statut == "ERREUR":
+            return Response(output.data, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
         return Response(
             output.data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
