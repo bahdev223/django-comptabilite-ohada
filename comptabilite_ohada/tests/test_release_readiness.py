@@ -50,8 +50,8 @@ class StarterChartReadinessTest(ReleaseAccountingBase):
     def test_comptes_requis_par_le_moteur_sont_presents(self):
         requis = {
             "101", "131", "139", "31", "401", "404", "411", "425",
-            "431", "443", "445", "447", "521", "552", "571", "585",
-            "601", "6031", "6032", "658", "661", "701", "706", "758",
+            "431", "443", "445", "447", "4812", "521", "552", "571", "585",
+            "601", "6031", "6032", "658", "661", "6813", "701", "706", "758", "2845",
             "81", "82", "83", "84", "89",
         }
         presents = set(
@@ -205,8 +205,8 @@ class AmortizationReadinessTest(ReleaseAccountingBase):
             valeur_residuelle=Decimal("0"),
             duree_ans=1,
             compte_immobilisation=self.compte("245"),
-            compte_amortissement=self.compte("28"),
-            compte_charge=self.compte("68"),
+            compte_amortissement=self.compte("2845"),
+            compte_charge=self.compte("6813"),
         )
         plan = list(AmortissementService.generer_plan(immo))
         self.assertEqual(len(plan), 12)
