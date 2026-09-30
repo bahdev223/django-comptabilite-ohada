@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
@@ -49,6 +51,36 @@ class AnalytiqueService:
 
         for code_dimension, raw_values in dimensions.items():
             values = raw_values if isinstance(raw_values, list) else [raw_values]
+            if not values:
+                raise ValidationError(
+                    f"Aucune valeur analytique fournie pour {code_dimension}."
+                )
+
+            if len(values) > 1:
+                if not all(isinstance(v, dict) for v in values):
+                    raise ValidationError(
+                        f"Une ventilation multiple sur {code_dimension} doit préciser des pourcentages ou montants."
+                    )
+                montants = [v.get("montant") for v in values]
+                pourcentages = [v.get("pourcentage") for v in values]
+
+                if all(m is not None for m in montants):
+                    total_montant = sum(Decimal(str(m)) for m in montants)
+                    montant_ligne = ligne.debit or ligne.credit
+                    if total_montant != montant_ligne:
+                        raise ValidationError(
+                            f"La ventilation en montant de {code_dimension} doit totaliser {montant_ligne}."
+                        )
+                else:
+                    if any(p is None for p in pourcentages):
+                        raise ValidationError(
+                            f"Toutes les répartitions de {code_dimension} doivent fournir un pourcentage."
+                        )
+                    total_pct = sum(Decimal(str(p)) for p in pourcentages)
+                    if total_pct != Decimal("100"):
+                        raise ValidationError(
+                            f"Les pourcentages de {code_dimension} doivent totaliser 100 (reçu {total_pct})."
+                        )
 
             for raw_value in values:
                 if isinstance(raw_value, dict):
