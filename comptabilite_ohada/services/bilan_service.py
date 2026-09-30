@@ -1,85 +1,152 @@
 from decimal import Decimal
 from datetime import date
 
-from django.db.models import Sum
-
-from ..models import CompteComptable, LigneEcritureComptable, ExerciceComptable
+from ..models import LigneEcritureComptable
 from ..models import NatureCompte, CategorieCompte
 
 
 class BilanService:
-    """États financiers : Bilan, Compte de résultat."""
+    """États de synthèse issus exclusivement des écritures validées."""
 
-    CLASSE_BILAN_ACTIF = ["2"]
-    CLASSE_BILAN_PASSIF = ["1"]
-    CLASSE_CHARGES = ["6"]
-    CLASSE_PRODUITS = ["7"]
+    CHARGES_HAO = {"81", "83", "85", "87", "89"}
+    PRODUITS_HAO = {"82", "84", "86", "88"}
+
+    @staticmethod
+    def _lignes_valides(entreprise_id="", exercice=None):
+        qs = LigneEcritureComptable.objects.filter(
+            ecriture__validee=True,
+            ecriture__entreprise_id=entreprise_id or "",
+        ).exclude(
+            ecriture__source_type="fiscal_closure",
+        ).exclude(
+            ecriture__reversal_of__source_type="fiscal_closure",
+        )
+        if exercice:
+            qs = qs.filter(
+                ecriture__date_ecriture__gte=exercice.date_debut,
+                ecriture__date_ecriture__lte=exercice.date_fin,
+            )
+        return qs
 
     @staticmethod
     def bilan(exercice=None, date_arret=None, entreprise_id=""):
-        if date_arret is None:
-            if exercice:
-                date_arret = exercice.date_fin
-            else:
-                date_arret = date.today()
-
         if exercice:
             entreprise_id = exercice.entreprise_id or ""
+            if date_arret is None:
+                date_arret = exercice.date_fin
+        elif date_arret is None:
+            date_arret = date.today()
+
         lignes = LigneEcritureComptable.objects.filter(
             ecriture__validee=True,
             ecriture__entreprise_id=entreprise_id or "",
             ecriture__date_ecriture__lte=date_arret,
         )
         if exercice:
-            lignes = lignes.filter(ecriture__date_ecriture__gte=exercice.date_debut)
+            lignes = lignes.filter(
+                ecriture__date_ecriture__gte=exercice.date_debut
+            )
 
-        actif = {}
-        passif = {}
-
-        for l in lignes.select_related("compte"):
-            c = l.compte
-            if c.categorie != CategorieCompte.BILAN.value:
+        data = {}
+        for ligne in lignes.select_related("compte"):
+            compte = ligne.compte
+            if compte.categorie != CategorieCompte.BILAN.value:
                 continue
-            if c.nature == NatureCompte.ACTIF:
-                target = actif
-            elif c.nature == NatureCompte.PASSIF:
-                target = passif
-            elif c.solde_normal == "DEBIT":
-                target = actif
+            item = data.setdefault(
+                compte.code,
+                {
+                    "compte": compte,
+                    "debit": Decimal("0.00"),
+                    "credit": Decimal("0.00"),
+                },
+            )
+            item["debit"] += ligne.debit
+            item["credit"] += ligne.credit
+
+        actif = []
+        passif = []
+
+        for item in data.values():
+            compte = item["compte"]
+            debit_net = item["debit"] - item["credit"]
+
+            # Ressources durables : toujours présentées au passif, une perte
+            # ou un compte débiteur venant diminuer le passif.
+            if compte.code.startswith("1"):
+                montant = -debit_net
+                if montant:
+                    passif.append({"compte": compte, "montant": montant})
+                continue
+
+            # Immobilisations/stocks : restent à l'actif. Les comptes de sens
+            # créditeur (amortissements/dépréciations) réduisent l'actif.
+            if compte.code.startswith(("2", "3")):
+                montant = debit_net
+                if montant:
+                    actif.append({"compte": compte, "montant": montant})
+                continue
+
+            if compte.nature == NatureCompte.ACTIF:
+                montant = debit_net
+                if montant >= 0:
+                    actif.append({"compte": compte, "montant": montant})
+                else:
+                    passif.append({"compte": compte, "montant": -montant})
+            elif compte.nature == NatureCompte.PASSIF:
+                montant = -debit_net
+                if montant >= 0:
+                    passif.append({"compte": compte, "montant": montant})
+                else:
+                    actif.append({"compte": compte, "montant": -montant})
             else:
-                target = passif
+                # Comptes mixtes de tiers/trésorerie : classement selon le
+                # solde réellement débiteur ou créditeur.
+                if debit_net > 0:
+                    actif.append({"compte": compte, "montant": debit_net})
+                elif debit_net < 0:
+                    passif.append({"compte": compte, "montant": -debit_net})
 
-            if c.code not in target:
-                target[c.code] = {"compte": c, "debit": Decimal("0.00"), "credit": Decimal("0.00")}
-            target[c.code]["debit"] += l.debit
-            target[c.code]["credit"] += l.credit
+        actif.sort(key=lambda x: x["compte"].code)
+        passif.sort(key=lambda x: x["compte"].code)
 
-        for d in (actif, passif):
-            for v in d.values():
-                v["solde"] = v["debit"] - v["credit"] if v["compte"].solde_normal == "DEBIT" \
-                    else v["credit"] - v["debit"]
-
-        total_actif = sum(v["solde"] for v in actif.values() if v["solde"] > 0)
-        total_passif = sum(v["solde"] for v in passif.values() if v["solde"] > 0)
+        total_actif = sum((x["montant"] for x in actif), Decimal("0.00"))
+        total_passif = sum((x["montant"] for x in passif), Decimal("0.00"))
 
         return {
-            "actif": [{"libelle": v["compte"].libelle, "montant": v["solde"]} for v in sorted(actif.values(), key=lambda x: x["compte"].code) if v["solde"] > 0],
-            "passif": [{"libelle": v["compte"].libelle, "montant": v["solde"]} for v in sorted(passif.values(), key=lambda x: x["compte"].code) if v["solde"] > 0],
+            "actif": [
+                {
+                    "code": x["compte"].code,
+                    "libelle": x["compte"].libelle,
+                    "montant": x["montant"],
+                }
+                for x in actif
+            ],
+            "passif": [
+                {
+                    "code": x["compte"].code,
+                    "libelle": x["compte"].libelle,
+                    "montant": x["montant"],
+                }
+                for x in passif
+            ],
             "total_actif": total_actif,
             "total_passif": total_passif,
+            "ecart": total_actif - total_passif,
             "date_arret": date_arret,
         }
 
-    @staticmethod
-    def compte_resultat(exercice=None, date_debut=None, date_fin=None, entreprise_id=""):
+    @classmethod
+    def compte_resultat(
+        cls, exercice=None, date_debut=None, date_fin=None, entreprise_id=""
+    ):
         if exercice:
             date_debut = exercice.date_debut
             date_fin = exercice.date_fin
             entreprise_id = exercice.entreprise_id or ""
 
-        lignes = LigneEcritureComptable.objects.filter(
-            ecriture__validee=True,
-            ecriture__entreprise_id=entreprise_id or "",
+        lignes = cls._lignes_valides(
+            entreprise_id=entreprise_id,
+            exercice=None,
         )
         if date_debut:
             lignes = lignes.filter(ecriture__date_ecriture__gte=date_debut)
@@ -89,34 +156,65 @@ class BilanService:
         charges = {}
         produits = {}
 
-        for l in lignes.select_related("compte"):
-            c = l.compte
-            if c.categorie != CategorieCompte.RESULTAT.value:
+        for ligne in lignes.select_related("compte"):
+            compte = ligne.compte
+            if compte.categorie != CategorieCompte.RESULTAT.value:
                 continue
-            if c.code[0] == "6":
+
+            prefix = compte.code[:2]
+            if compte.code.startswith("6") or prefix in cls.CHARGES_HAO:
                 target = charges
-            elif c.code[0] == "7":
+                sens = "charge"
+            elif compte.code.startswith("7") or prefix in cls.PRODUITS_HAO:
                 target = produits
+                sens = "produit"
             else:
                 continue
-            if c.code not in target:
-                target[c.code] = {"compte": c, "debit": Decimal("0.00"), "credit": Decimal("0.00")}
-            target[c.code]["debit"] += l.debit
-            target[c.code]["credit"] += l.credit
 
-        for d in (charges, produits):
-            for v in d.values():
-                v["solde"] = v["debit"] - v["credit"] if v["compte"].solde_normal == "DEBIT" \
-                    else v["credit"] - v["debit"]
+            item = target.setdefault(
+                compte.code,
+                {
+                    "compte": compte,
+                    "debit": Decimal("0.00"),
+                    "credit": Decimal("0.00"),
+                    "sens": sens,
+                },
+            )
+            item["debit"] += ligne.debit
+            item["credit"] += ligne.credit
 
-        total_charges = sum(v["solde"] for v in charges.values())
-        total_produits = sum(v["solde"] for v in produits.values())
-        resultat = total_produits - total_charges
+        for item in charges.values():
+            item["solde"] = item["debit"] - item["credit"]
+        for item in produits.values():
+            item["solde"] = item["credit"] - item["debit"]
+
+        total_charges = sum(
+            (x["solde"] for x in charges.values()), Decimal("0.00")
+        )
+        total_produits = sum(
+            (x["solde"] for x in produits.values()), Decimal("0.00")
+        )
 
         return {
-            "charges": [{"libelle": v["compte"].libelle, "montant": v["solde"]} for v in sorted(charges.values(), key=lambda x: x["compte"].code)],
-            "produits": [{"libelle": v["compte"].libelle, "montant": v["solde"]} for v in sorted(produits.values(), key=lambda x: x["compte"].code)],
+            "charges": [
+                {
+                    "code": x["compte"].code,
+                    "libelle": x["compte"].libelle,
+                    "montant": x["solde"],
+                }
+                for x in sorted(charges.values(), key=lambda x: x["compte"].code)
+                if x["solde"]
+            ],
+            "produits": [
+                {
+                    "code": x["compte"].code,
+                    "libelle": x["compte"].libelle,
+                    "montant": x["solde"],
+                }
+                for x in sorted(produits.values(), key=lambda x: x["compte"].code)
+                if x["solde"]
+            ],
             "total_charges": total_charges,
             "total_produits": total_produits,
-            "resultat_net": resultat,
+            "resultat_net": total_produits - total_charges,
         }
