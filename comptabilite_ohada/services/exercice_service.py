@@ -82,7 +82,10 @@ class ValidationService:
                              f"(Débit: {ecriture.total_debit}, Crédit: {ecriture.total_credit})")
         ecriture.validee = True
         ecriture.date_validation = timezone.now()
-        ecriture.save()
+        ecriture.validated_by = (
+            user.username if hasattr(user, "username") and user else str(user or "")
+        )
+        ecriture.save(update_fields=["validee", "date_validation", "validated_by"])
         return ecriture
 
     @staticmethod
@@ -108,4 +111,10 @@ class ValidationService:
             exercice=ecriture.exercice,
             user=user,
             entreprise_id=ecriture.entreprise_id,
+            source_system=ecriture.source_system,
+            source_type="reversal",
+            source_id=str(ecriture.pk),
+            source_reference=ecriture.reference,
+            metadata={"raison": raison},
+            reversal_of=ecriture,
         )
