@@ -61,10 +61,13 @@ class AffectationAnalytique(models.Model):
     pourcentage = models.DecimalField(
         max_digits=5, decimal_places=2, default=Decimal("100.00")
     )
+    montant = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True
+    )
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
-        unique_together = [["ligne", "dimension"]]
+        unique_together = [["ligne", "dimension", "valeur"]]
         verbose_name = _("Affectation analytique")
         verbose_name_plural = _("Affectations analytiques")
 
