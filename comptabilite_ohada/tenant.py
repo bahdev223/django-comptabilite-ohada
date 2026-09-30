@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework.exceptions import PermissionDenied
 
 from .models import AccesEntrepriseComptable, OrganisationComptable
@@ -41,6 +42,9 @@ def resolve_entreprise_id(request):
 
     first = accesses.first()
     if first is None:
+        config = getattr(settings, "COMPTABILITE_OHADA", {})
+        if config.get("REQUIRE_TENANT_MEMBERSHIP", False):
+            raise PermissionDenied("Aucune entreprise comptable n'est associée à cet utilisateur.")
         return ""
 
     if accesses.count() == 1:
