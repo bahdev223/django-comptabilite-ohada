@@ -74,8 +74,18 @@ class AffectationAnalytique(models.Model):
     def clean(self):
         if self.valeur.dimension_id != self.dimension_id:
             raise ValidationError("La valeur analytique n'appartient pas à la dimension indiquée.")
+        if (
+            self.ligne_id
+            and (self.ligne.ecriture.entreprise_id or "")
+            != (self.dimension.entreprise_id or "")
+        ):
+            raise ValidationError(
+                "La dimension analytique appartient à une autre entreprise."
+            )
         if self.pourcentage <= 0 or self.pourcentage > 100:
             raise ValidationError("Le pourcentage analytique doit être compris entre 0 et 100.")
+        if self.montant is not None and self.montant < 0:
+            raise ValidationError("Le montant analytique ne peut pas être négatif.")
 
     def __str__(self):
         return f"{self.ligne_id} - {self.dimension.code}:{self.valeur.code}"
