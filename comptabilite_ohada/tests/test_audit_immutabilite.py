@@ -106,9 +106,9 @@ class ReouvertureExerciceTest(TestCase):
             sens="CREDIT",
         )
         self.resultat = CompteComptable.objects.create(
-            code="129",
-            libelle="Résultat",
-            nature="PASSIF",
+            code="139",
+            libelle="Résultat net : perte",
+            nature="MIXTE",
             sens="DEBIT",
         )
         self.capital = CompteComptable.objects.create(
