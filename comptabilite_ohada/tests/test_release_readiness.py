@@ -125,8 +125,7 @@ class ClosingReadinessTest(ReleaseAccountingBase):
                 {"compte": self.compte("701"), "credit": Decimal("1500")},
                 {"compte": self.compte("83"), "debit": Decimal("100")},
                 {"compte": self.compte("84"), "credit": Decimal("50")},
-                {"compte": self.compte("571"), "debit": Decimal("550")},
-                {"compte": self.compte("571"), "credit": Decimal("1000")},
+                {"compte": self.compte("571"), "debit": Decimal("450")},
             ],
         )
         avant = BilanService.compte_resultat(
