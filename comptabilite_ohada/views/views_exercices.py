@@ -6,10 +6,11 @@ from django.shortcuts import redirect
 
 from ..models import ExerciceComptable
 from ..services.exercice_service import ExerciceService
+from ..tenant import resolve_entreprise_id
 
 
 def _entreprise_id(request):
-    return str(getattr(request.user, "entreprise_id", "") or "")
+    return resolve_entreprise_id(request)
 
 
 class ExerciceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
