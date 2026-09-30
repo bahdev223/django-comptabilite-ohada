@@ -41,6 +41,12 @@ class ConfigurationComptable(models.Model):
     class Meta:
         verbose_name = _("Configuration comptable")
         verbose_name_plural = _("Configuration comptable")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["entreprise_id"],
+                name="uniq_configuration_comptable_par_entreprise",
+            )
+        ]
 
     def __str__(self):
         return self.nom
@@ -64,6 +70,7 @@ class SoldeInitialComptable(models.Model):
 
     caisse = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     banque = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    mobile_money = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     stocks = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     clients = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     fournisseurs = models.DecimalField(max_digits=15, decimal_places=2, default=0)
