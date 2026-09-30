@@ -14,8 +14,9 @@ class RapprochementService:
     @staticmethod
     @transaction.atomic
     def creer_releve(compte_comptable_code, date_debut, date_fin,
-                     solde_ouverture, solde_cloture):
+                     solde_ouverture, solde_cloture, entreprise_id=""):
         return ReleveBancaire.objects.create(
+            entreprise_id=entreprise_id or "",
             compte_comptable_code=compte_comptable_code,
             date_debut=date_debut,
             date_fin=date_fin,
