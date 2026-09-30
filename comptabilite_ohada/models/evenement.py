@@ -41,3 +41,22 @@ class EvenementMetier(models.Model):
 
     def __str__(self):
         return f"{self.type_evenement} - {self.idempotency_key}"
+
+
+class RegleEvenementComptable(models.Model):
+    """Associe un type d'événement externe à une règle comptable sans couplage métier."""
+
+    entreprise_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
+    type_evenement = models.CharField(max_length=100)
+    code_regle = models.CharField(max_length=100)
+    actif = models.BooleanField(default=True)
+    configuration = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        unique_together = [["entreprise_id", "type_evenement"]]
+        ordering = ["type_evenement"]
+        verbose_name = _("Règle d'événement comptable")
+        verbose_name_plural = _("Règles d'événements comptables")
+
+    def __str__(self):
+        return f"{self.type_evenement} -> {self.code_regle}"
