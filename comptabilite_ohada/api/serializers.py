@@ -7,6 +7,8 @@ from ..models import (
     CompteComptable, EcritureComptable, LigneEcritureComptable,
     JournalComptable, ExerciceComptable, ConfigurationComptable,
     Immobilisation, PlanAmortissement,
+    DimensionAnalytique, ValeurAnalytique, AffectationAnalytique,
+    EvenementMetier, RegleEvenementComptable,
 )
 
 
@@ -16,14 +18,32 @@ class CompteComptableSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class AffectationAnalytiqueSerializer(serializers.ModelSerializer):
+    dimension_code = serializers.CharField(source="dimension.code", read_only=True)
+    valeur_code = serializers.CharField(source="valeur.code", read_only=True)
+    valeur_libelle = serializers.CharField(source="valeur.libelle", read_only=True)
+
+    class Meta:
+        model = AffectationAnalytique
+        fields = [
+            "id", "dimension", "dimension_code", "valeur", "valeur_code",
+            "valeur_libelle", "pourcentage", "metadata",
+        ]
+        read_only_fields = ["id", "dimension_code", "valeur_code", "valeur_libelle"]
+
+
 class LigneEcritureComptableSerializer(serializers.ModelSerializer):
     compte_code = serializers.CharField(source="compte.code", read_only=True)
     compte_libelle = serializers.CharField(source="compte.libelle", read_only=True)
+    affectations_analytiques = AffectationAnalytiqueSerializer(many=True, read_only=True)
+    dimensions = serializers.JSONField(write_only=True, required=False)
 
     class Meta:
         model = LigneEcritureComptable
-        fields = ["id", "compte", "compte_code", "compte_libelle", "libelle",
-                   "debit", "credit"]
+        fields = [
+            "id", "compte", "compte_code", "compte_libelle", "libelle",
+            "debit", "credit", "affectations_analytiques", "dimensions",
+        ]
 
 
 class EcritureComptableSerializer(serializers.ModelSerializer):
@@ -42,6 +62,10 @@ class EcritureCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = EcritureComptable
         fields = "__all__"
+        read_only_fields = [
+            "entreprise_id", "created_at", "created_by", "validated_by",
+            "date_validation", "reversal_of",
+        ]
 
     def create(self, validated_data):
         lignes = validated_data.pop("lignes")
@@ -58,6 +82,12 @@ class EcritureCreateSerializer(serializers.ModelSerializer):
             validee=validated_data.get("validee", False),
             user=user,
             entreprise_id=str(getattr(user, "entreprise_id", "") or ""),
+            source_system=validated_data.get("source_system", ""),
+            source_type=validated_data.get("source_type", ""),
+            source_id=validated_data.get("source_id", ""),
+            source_reference=validated_data.get("source_reference", ""),
+            idempotency_key=validated_data.get("idempotency_key"),
+            metadata=validated_data.get("metadata") or {},
         )
 
     def validate(self, data):
@@ -104,3 +134,45 @@ class ImmobilisationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Immobilisation
         fields = "__all__"
+
+
+
+class DimensionAnalytiqueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DimensionAnalytique
+        fields = "__all__"
+        read_only_fields = ["entreprise_id"]
+
+
+class ValeurAnalytiqueSerializer(serializers.ModelSerializer):
+    dimension_code = serializers.CharField(source="dimension.code", read_only=True)
+
+    class Meta:
+        model = ValeurAnalytique
+        fields = "__all__"
+
+
+class RegleEvenementComptableSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RegleEvenementComptable
+        fields = "__all__"
+        read_only_fields = ["entreprise_id"]
+
+
+class EvenementMetierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EvenementMetier
+        fields = "__all__"
+        read_only_fields = [
+            "entreprise_id", "statut", "ecriture", "erreur",
+            "created_at", "processed_at",
+        ]
+
+
+class EvenementIngestSerializer(serializers.Serializer):
+    type_evenement = serializers.CharField(max_length=100)
+    source_system = serializers.CharField(max_length=100)
+    source_type = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    source_id = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    idempotency_key = serializers.CharField(max_length=255)
+    payload = serializers.JSONField(required=False, default=dict)
