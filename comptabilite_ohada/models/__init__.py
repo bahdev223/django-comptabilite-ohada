@@ -7,7 +7,11 @@ from .amortissement import Immobilisation, PlanAmortissement
 from .rapprochement import ReleveBancaire, LigneReleveBancaire
 from .analytique import DimensionAnalytique, ValeurAnalytique, AffectationAnalytique
 from .evenement import EvenementMetier, RegleEvenementComptable
-from .tenant import OrganisationComptable, AccesEntrepriseComptable
+from .tenant import (
+    OrganisationComptable,
+    AccesEntrepriseComptable,
+    ApplicationClienteComptable,
+)
 
 __all__ = [
     "CompteComptable",
@@ -32,4 +36,5 @@ __all__ = [
     "RegleEvenementComptable",
     "OrganisationComptable",
     "AccesEntrepriseComptable",
+    "ApplicationClienteComptable",
 ]
