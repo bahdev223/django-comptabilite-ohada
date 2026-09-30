@@ -10,17 +10,23 @@ from ..models import (
     CompteComptable, EcritureComptable, LigneEcritureComptable,
     JournalComptable, ExerciceComptable, ConfigurationComptable,
     Immobilisation, PlanAmortissement,
+    DimensionAnalytique, ValeurAnalytique,
+    EvenementMetier, RegleEvenementComptable,
 )
 from ..services.ecriture_service import EcritureService
 from ..services.journal_service import BalanceService, GrandLivreService
 from ..services.bilan_service import BilanService
 from ..services.exercice_service import ExerciceService, ValidationService
 from ..services.amortissement_service import AmortissementService
+from ..services.evenement_service import EvenementService
 from .serializers import (
     CompteComptableSerializer, EcritureComptableSerializer,
     EcritureCreateSerializer, JournalComptableSerializer,
     ExerciceComptableSerializer, ConfigurationComptableSerializer,
     ImmobilisationSerializer, PlanAmortissementSerializer,
+    DimensionAnalytiqueSerializer, ValeurAnalytiqueSerializer,
+    RegleEvenementComptableSerializer, EvenementMetierSerializer,
+    EvenementIngestSerializer,
 )
 
 
@@ -213,3 +219,76 @@ class ImmobilisationViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet)
             return Response({"status": "amortissement comptabilisé"})
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class DimensionAnalytiqueViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = DimensionAnalytique.objects.all()
+    serializer_class = DimensionAnalytiqueSerializer
+    filterset_fields = ["code", "actif"]
+    search_fields = ["code", "libelle"]
+
+
+class ValeurAnalytiqueViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ValeurAnalytiqueSerializer
+    filterset_fields = ["dimension", "code", "external_id", "actif"]
+    search_fields = ["code", "libelle", "external_id"]
+
+    def get_entreprise_id(self):
+        return str(getattr(self.request.user, "entreprise_id", "") or "")
+
+    def get_queryset(self):
+        return ValeurAnalytique.objects.filter(
+            dimension__entreprise_id=self.get_entreprise_id()
+        ).select_related("dimension")
+
+    def perform_create(self, serializer):
+        dimension = serializer.validated_data["dimension"]
+        if (dimension.entreprise_id or "") != self.get_entreprise_id():
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError("Cette dimension analytique appartient à une autre entreprise.")
+        serializer.save()
+
+
+class RegleEvenementComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = RegleEvenementComptable.objects.all()
+    serializer_class = RegleEvenementComptableSerializer
+    filterset_fields = ["type_evenement", "code_regle", "actif"]
+    search_fields = ["type_evenement", "code_regle"]
+
+
+class EvenementMetierViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = EvenementMetier.objects.select_related("ecriture").all()
+    serializer_class = EvenementMetierSerializer
+    http_method_names = ["get", "post", "head", "options"]
+    filterset_fields = ["type_evenement", "source_system", "source_id", "statut"]
+    search_fields = ["idempotency_key", "source_id"]
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return EvenementIngestSerializer
+        return EvenementMetierSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        evenement, created = EvenementService.recevoir(
+            entreprise_id=self.get_entreprise_id(),
+            type_evenement=data["type_evenement"],
+            source_system=data["source_system"],
+            source_type=data.get("source_type", ""),
+            source_id=data.get("source_id", ""),
+            idempotency_key=data["idempotency_key"],
+            payload=data.get("payload") or {},
+            user=request.user,
+        )
+        output = EvenementMetierSerializer(evenement, context={"request": request})
+        return Response(
+            output.data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
