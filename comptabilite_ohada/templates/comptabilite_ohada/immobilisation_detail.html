@@ -1,8 +1,8 @@
 {% extends "comptabilite_ohada/base.html" %}
-{% block title %}{{ immobilisation.designation }}{% endblock %}
+{% block title %}{{ immobilisation.libelle }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>{{ immobilisation.code }} - {{ immobilisation.designation }}</h1>
+    <h1>{{ immobilisation.code }} - {{ immobilisation.libelle }}</h1>
     <a href="{% url 'comptabilite:immobilisation_list' %}" class="btn btn-outline-secondary">&larr; Retour</a>
 </div>
 
@@ -11,11 +11,12 @@
         <div class="stat-card">
             <h5>D&eacute;tails</h5>
             <table class="table table-sm">
-                <tr><th>Valeur d'acquisition</th><td class="text-end">{{ immobilisation.valeur_acquisition|floatformat:2 }}</td></tr>
+                <tr><th>Type</th><td>{{ immobilisation.get_type_immobilisation_display }}</td></tr>
+                <tr><th>Valeur d'origine</th><td class="text-end">{{ immobilisation.valeur_originale|floatformat:2 }}</td></tr>
                 <tr><th>Valeur r&eacute;siduelle</th><td class="text-end">{{ immobilisation.valeur_residuelle|floatformat:2 }}</td></tr>
                 <tr><th>Dur&eacute;e (ans)</th><td class="text-end">{{ immobilisation.duree_ans }}</td></tr>
-                <tr><th>Mode amort.</th><td>{{ immobilisation.get_mode_amortissement_display }}</td></tr>
                 <tr><th>Date d'acquisition</th><td>{{ immobilisation.date_acquisition|date:"d/m/Y" }}</td></tr>
+                <tr><th>VNC actuelle</th><td class="text-end">{{ immobilisation.valeur_nette_comptable|floatformat:2 }}</td></tr>
                 <tr><th>Statut</th><td>{{ immobilisation.get_statut_display }}</td></tr>
             </table>
         </div>
@@ -26,21 +27,21 @@
             <table class="table table-sm">
                 <thead>
                     <tr>
-                        <th>Ann&eacute;e</th>
-                        <th>Base</th>
-                        <th>Annuit&eacute;</th>
-                        <th>Cumul</th>
-                        <th>VNC</th>
+                        <th>P&eacute;riode</th>
+                        <th class="text-end">Montant</th>
+                        <th class="text-end">Cumul</th>
+                        <th class="text-end">VNC</th>
+                        <th>Comptabilis&eacute;</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for p in plan %}
                     <tr>
-                        <td>{{ p.annee }}</td>
-                        <td class="text-end">{{ p.base_amortissable|floatformat:2 }}</td>
-                        <td class="text-end">{{ p.annuite|floatformat:2 }}</td>
-                        <td class="text-end">{{ p.cumul_amortissement|floatformat:2 }}</td>
-                        <td class="text-end">{{ p.valeur_nette_comptable|floatformat:2 }}</td>
+                        <td>{{ p.periode|date:"m/Y" }}</td>
+                        <td class="text-end">{{ p.montant|floatformat:2 }}</td>
+                        <td class="text-end">{{ p.amortissement_cumule|floatformat:2 }}</td>
+                        <td class="text-end">{{ p.valeur_nette|floatformat:2 }}</td>
+                        <td>{% if p.ecriture_generee %}&#10003;{% else %}&mdash;{% endif %}</td>
                     </tr>
                     {% empty %}
                     <tr><td colspan="5" class="text-muted">Aucun plan g&eacute;n&eacute;r&eacute;</td></tr>
