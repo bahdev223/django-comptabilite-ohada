@@ -11,12 +11,18 @@ class Command(BaseCommand):
             "--ecraser",
             action="store_true",
             default=False,
-            help="Écraser les comptes existants.",
+            help="Synchroniser les métadonnées des comptes existants sans supprimer l'historique.",
+        )
+        parser.add_argument(
+            "--entreprise",
+            default="",
+            help="Identifiant de l'entreprise à initialiser (vide = mode mono-entreprise).",
         )
 
     def handle(self, *args, **options):
         resultat = InitialisationService.charger_plan_comptable(
-            force=options["ecraser"]
+            force=options["ecraser"],
+            entreprise_id=options["entreprise"],
         )
         if not resultat.get("success"):
             raise CommandError(resultat.get("error", "Initialisation impossible"))
