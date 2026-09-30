@@ -78,11 +78,18 @@ class BalanceService:
             data[c.code]["total_credit"] += l.credit
 
         for v in data.values():
+            net = v["total_debit"] - v["total_credit"]
+            v["solde_debiteur"] = max(net, Decimal("0.00"))
+            v["solde_crediteur"] = max(-net, Decimal("0.00"))
             solde_normal = v["compte"].solde_normal
             if solde_normal == "DEBIT":
-                v["solde"] = v["total_debit"] - v["total_credit"]
+                v["solde"] = net
+            elif solde_normal == "CREDIT":
+                v["solde"] = -net
             else:
-                v["solde"] = v["total_credit"] - v["total_debit"]
+                # Pour un compte mixte, un signe positif représente un
+                # solde débiteur et un signe négatif un solde créditeur.
+                v["solde"] = net
 
         return sorted(data.values(), key=lambda x: x["compte"].code)
 
@@ -100,7 +107,9 @@ class BalanceService:
         credit = lignes.aggregate(t=Sum("credit"))["t"] or Decimal("0.00")
         if compte.solde_normal == "DEBIT":
             return debit - credit
-        return credit - debit
+        if compte.solde_normal == "CREDIT":
+            return credit - debit
+        return debit - credit
 
 
 class GrandLivreService:
