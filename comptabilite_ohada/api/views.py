@@ -33,6 +33,12 @@ class EntrepriseScopedViewSetMixin:
     def get_queryset(self):
         return super().get_queryset().filter(entreprise_id=self.get_entreprise_id())
 
+    def perform_create(self, serializer):
+        serializer.save(entreprise_id=self.get_entreprise_id())
+
+    def perform_update(self, serializer):
+        serializer.save(entreprise_id=self.get_entreprise_id())
+
 
 class CompteComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
