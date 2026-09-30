@@ -57,7 +57,7 @@ class EcritureCreateSerializer(serializers.ModelSerializer):
             piece=validated_data.get("piece"),
             validee=validated_data.get("validee", False),
             user=user,
-            entreprise_id=validated_data.get("entreprise_id", ""),
+            entreprise_id=str(getattr(user, "entreprise_id", "") or ""),
         )
 
     def validate(self, data):
