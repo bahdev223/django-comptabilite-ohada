@@ -11,6 +11,7 @@ class ReleveBancaire(models.Model):
         ("RAPPROCHE", _("Rapproché")),
     ]
 
+    entreprise_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
     compte_comptable_code = models.CharField(
         _("Code compte bancaire"), max_length=20,
         help_text="Code SYSCOHADA du compte banque (521...)",
