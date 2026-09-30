@@ -2,6 +2,7 @@ from decimal import Decimal
 from datetime import date, timedelta
 
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from ..models import ExerciceComptable, ConfigurationComptable, EcritureComptable
@@ -41,8 +42,9 @@ class ExerciceService:
         )["t"] or Decimal("0.00")
         resultat = total_produits - total_charges
 
-        # Écriture d'affectation
-        EcritureService.creer_ecriture_cloture_exercice(exercice, resultat, user=user)
+        # Un résultat nul ne doit pas produire une écriture à montant nul.
+        if resultat != Decimal("0.00"):
+            EcritureService.creer_ecriture_cloture_exercice(exercice, resultat, user=user)
 
         exercice.cloture = True
         exercice.date_cloture = timezone.now().date()
