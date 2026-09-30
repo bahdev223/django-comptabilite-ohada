@@ -56,10 +56,12 @@
                 <tr><th>Date</th><td>{{ ecriture.date_ecriture|date:"d/m/Y" }}</td></tr>
                 <tr><th>Journal</th><td>{{ ecriture.journal.code }} - {{ ecriture.journal.libelle }}</td></tr>
                 <tr><th>Exercice</th><td>{{ ecriture.exercice }}</td></tr>
-                <tr><th>Type</th><td>{{ ecriture.get_type_operation_display }}</td></tr>
+                <tr><th>Pièce</th><td>{{ ecriture.piece|default:"-" }}</td></tr>
                 <tr><th>Statut</th><td>{% if ecriture.validee %}<span class="badge bg-success">Valid&eacute;e</span>{% else %}<span class="badge bg-warning">En attente</span>{% endif %}</td></tr>
-                <tr><th>Cr&eacute;&eacute;e par</th><td>{{ ecriture.createur|default:"-" }}</td></tr>
-                <tr><th>Valid&eacute;e par</th><td>{{ ecriture.validee_par|default:"-" }}</td></tr>
+                <tr><th>Cr&eacute;&eacute;e par</th><td>{{ ecriture.created_by|default:"-" }}</td></tr>
+                <tr><th>Valid&eacute;e par</th><td>{{ ecriture.validated_by|default:"-" }}</td></tr>
+                <tr><th>Source</th><td>{{ ecriture.source_system|default:"-" }}</td></tr>
+                <tr><th>R&eacute;f. source</th><td>{{ ecriture.source_reference|default:ecriture.source_id|default:"-" }}</td></tr>
             </table>
         </div>
     </div>
