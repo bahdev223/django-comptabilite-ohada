@@ -466,28 +466,105 @@ class EcritureService:
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_cloture_exercice(cls, exercice, resultat, user=None):
+    def creer_ecriture_cloture_exercice(cls, exercice, user=None):
+        """Solde les comptes de résultat vers 131 (bénéfice) ou 139 (perte)."""
+        from django.db.models import Sum
+        from ..models import LigneEcritureComptable, CategorieCompte
+
         entreprise_id = exercice.entreprise_id or ""
         journal = cls.get_or_create_journal("CL", "Clôture", "OD", entreprise_id)
+
+        lignes_qs = LigneEcritureComptable.objects.filter(
+            ecriture__exercice=exercice,
+            ecriture__validee=True,
+            compte__categorie=CategorieCompte.RESULTAT.value,
+        ).exclude(
+            ecriture__source_type="fiscal_closure",
+        ).exclude(
+            ecriture__reversal_of__source_type="fiscal_closure",
+        )
+
+        aggregats = lignes_qs.values(
+            "compte_id", "compte__code", "compte__libelle"
+        ).annotate(
+            debit_total=Sum("debit"),
+            credit_total=Sum("credit"),
+        )
+
+        lignes = []
+        total_debit = Decimal("0.00")
+        total_credit = Decimal("0.00")
+        charges_hao = {"81", "83", "85", "87", "89"}
+        produits_hao = {"82", "84", "86", "88"}
+
+        for item in aggregats:
+            code = item["compte__code"]
+            compte = cls.get_compte(item["compte_id"], entreprise_id)
+            debit = item["debit_total"] or Decimal("0.00")
+            credit = item["credit_total"] or Decimal("0.00")
+            prefix = code[:2]
+
+            if code.startswith("6") or prefix in charges_hao:
+                solde = debit - credit
+                if solde > 0:
+                    lignes.append({
+                        "compte": compte,
+                        "credit": solde,
+                        "libelle": f"Clôture {code} - {item['compte__libelle']}",
+                    })
+                    total_credit += solde
+                elif solde < 0:
+                    montant = -solde
+                    lignes.append({
+                        "compte": compte,
+                        "debit": montant,
+                        "libelle": f"Clôture {code} - {item['compte__libelle']}",
+                    })
+                    total_debit += montant
+            elif code.startswith("7") or prefix in produits_hao:
+                solde = credit - debit
+                if solde > 0:
+                    lignes.append({
+                        "compte": compte,
+                        "debit": solde,
+                        "libelle": f"Clôture {code} - {item['compte__libelle']}",
+                    })
+                    total_debit += solde
+                elif solde < 0:
+                    montant = -solde
+                    lignes.append({
+                        "compte": compte,
+                        "credit": montant,
+                        "libelle": f"Clôture {code} - {item['compte__libelle']}",
+                    })
+                    total_credit += montant
+
+        if not lignes:
+            return None
+
+        resultat = total_debit - total_credit
+        if resultat > 0:
+            compte_resultat = cls.get_compte("131", entreprise_id)
+            lignes.append({
+                "compte": compte_resultat,
+                "credit": resultat,
+                "libelle": f"Résultat bénéficiaire {exercice.code}",
+            })
+        elif resultat < 0:
+            compte_resultat = cls.get_compte("139", entreprise_id)
+            lignes.append({
+                "compte": compte_resultat,
+                "debit": -resultat,
+                "libelle": f"Résultat déficitaire {exercice.code}",
+            })
+
         ref = cls.generer_reference(f"RES-{exercice.code}")
-        libelle = f"Affectation résultat exercice {exercice.code}"
-        if resultat >= 0:
-            lignes = [
-                {"compte": cls.get_compte("129", entreprise_id), "debit": resultat,
-                 "libelle": f"Bénéfice {exercice.code}"},
-                {"compte": cls.get_compte("101", entreprise_id), "credit": resultat,
-                 "libelle": f"Capital - report bénéfice {exercice.code}"},
-            ]
-        else:
-            r = abs(resultat)
-            lignes = [
-                {"compte": cls.get_compte("101", entreprise_id), "debit": r,
-                 "libelle": f"Imputation perte {exercice.code}"},
-                {"compte": cls.get_compte("129", entreprise_id), "credit": r,
-                 "libelle": f"Perte {exercice.code}"},
-            ]
         return cls.creer_ecriture(
-            ref, exercice.date_fin, libelle, journal, lignes,
+            ref,
+            exercice.date_fin,
+            f"Clôture des comptes de résultat {exercice.code}",
+            journal,
+            lignes,
             exercice=exercice,
             user=user,
             entreprise_id=entreprise_id,
@@ -495,4 +572,5 @@ class EcritureService:
             source_type="fiscal_closure",
             source_id=str(exercice.pk),
             source_reference=exercice.code,
+            metadata={"resultat_net": str(resultat)},
         )
