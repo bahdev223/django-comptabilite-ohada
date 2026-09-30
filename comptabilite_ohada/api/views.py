@@ -14,7 +14,7 @@ from ..models import (
 from ..services.ecriture_service import EcritureService
 from ..services.journal_service import BalanceService, GrandLivreService
 from ..services.bilan_service import BilanService
-from ..services.exercice_service import ExerciceService
+from ..services.exercice_service import ExerciceService, ValidationService
 from ..services.amortissement_service import AmortissementService
 from .serializers import (
     CompteComptableSerializer, EcritureComptableSerializer,
@@ -24,7 +24,17 @@ from .serializers import (
 )
 
 
-class CompteComptableViewSet(viewsets.ModelViewSet):
+class EntrepriseScopedViewSetMixin:
+    """Scope les ressources comptables sur l'entreprise portée par l'utilisateur."""
+
+    def get_entreprise_id(self):
+        return str(getattr(self.request.user, "entreprise_id", "") or "")
+
+    def get_queryset(self):
+        return super().get_queryset().filter(entreprise_id=self.get_entreprise_id())
+
+
+class CompteComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = CompteComptable.objects.all()
     serializer_class = CompteComptableSerializer
@@ -43,7 +53,7 @@ class CompteComptableViewSet(viewsets.ModelViewSet):
         return Response({"solde": float(total_debit) - float(total_credit)})
 
 
-class EcritureComptableViewSet(viewsets.ModelViewSet):
+class EcritureComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = EcritureComptable.objects.prefetch_related("lignes__compte").all()
     filterset_fields = ["validee", "journal", "exercice", "entreprise_id"]
@@ -60,7 +70,7 @@ class EcritureComptableViewSet(viewsets.ModelViewSet):
         if ecriture.validee:
             return Response({"error": "Déjà validée"}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            EcritureService.valider_ecriture(ecriture, request.user)
+            ValidationService.valider_ecriture(ecriture, request.user)
             return Response({"status": "validée"})
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -69,7 +79,7 @@ class EcritureComptableViewSet(viewsets.ModelViewSet):
     def annuler(self, request, pk=None):
         ecriture = self.get_object()
         try:
-            EcritureService.annuler_ecriture(ecriture, request.user)
+            ValidationService.annuler_ecriture(ecriture, request.user)
             return Response({"status": "annulée"})
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -78,8 +88,9 @@ class EcritureComptableViewSet(viewsets.ModelViewSet):
     def balance(self, request):
         exercice_id = request.query_params.get("exercice")
         service = BalanceService()
-        exercice = ExerciceComptable.objects.filter(pk=exercice_id).first() if exercice_id else None
-        data = service.balance(exercice=exercice)
+        entreprise_id = self.get_entreprise_id()
+        exercice = self.get_queryset().filter(pk=exercice_id).first() if exercice_id else None
+        data = service.balance(exercice=exercice, entreprise_id=entreprise_id)
         return Response(data)
 
     @action(detail=False, methods=["get"])
@@ -87,28 +98,33 @@ class EcritureComptableViewSet(viewsets.ModelViewSet):
         compte_code = request.query_params.get("compte")
         exercice_id = request.query_params.get("exercice")
         service = GrandLivreService()
-        exercice = ExerciceComptable.objects.filter(pk=exercice_id).first() if exercice_id else None
-        data = service.grand_livre(compte_code=compte_code, exercice=exercice)
+        entreprise_id = self.get_entreprise_id()
+        exercice = self.get_queryset().filter(pk=exercice_id).first() if exercice_id else None
+        data = service.grand_livre(
+            compte_code=compte_code, exercice=exercice, entreprise_id=entreprise_id
+        )
         return Response(data)
 
     @action(detail=False, methods=["get"])
     def bilan(self, request):
         exercice_id = request.query_params.get("exercice")
         service = BilanService()
-        exercice = ExerciceComptable.objects.filter(pk=exercice_id).first() if exercice_id else None
-        bilan = service.bilan(exercice=exercice)
+        entreprise_id = self.get_entreprise_id()
+        exercice = self.get_queryset().filter(pk=exercice_id).first() if exercice_id else None
+        bilan = service.bilan(exercice=exercice, entreprise_id=entreprise_id)
         return Response(bilan)
 
     @action(detail=False, methods=["get"])
     def compte_resultat(self, request):
         exercice_id = request.query_params.get("exercice")
         service = BilanService()
-        exercice = ExerciceComptable.objects.filter(pk=exercice_id).first() if exercice_id else None
-        resultat = service.compte_resultat(exercice=exercice)
+        entreprise_id = self.get_entreprise_id()
+        exercice = self.get_queryset().filter(pk=exercice_id).first() if exercice_id else None
+        resultat = service.compte_resultat(exercice=exercice, entreprise_id=entreprise_id)
         return Response(resultat)
 
 
-class JournalComptableViewSet(viewsets.ModelViewSet):
+class JournalComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = JournalComptable.objects.all()
     serializer_class = JournalComptableSerializer
@@ -127,7 +143,7 @@ class JournalComptableViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class ExerciceComptableViewSet(viewsets.ModelViewSet):
+class ExerciceComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = ExerciceComptable.objects.all()
     serializer_class = ExerciceComptableSerializer
