@@ -116,6 +116,9 @@ Le contrat stable cible est :
 Principales ressources :
 
 ```text
+GET      /api/v1/health/
+POST     /api/v1/auth/token/
+GET      /api/v1/organisations/
 GET/POST /api/v1/comptes/
 GET/POST /api/v1/journaux/
 GET/POST /api/v1/exercices/
@@ -215,6 +218,8 @@ Les transferts sont traités une seule fois et les annulations contre-passent l'
 Les données sont isolées par `entreprise_id`.
 
 L'API dérive ce contexte de l'utilisateur authentifié au lieu d'accepter librement un identifiant d'entreprise envoyé par le client.
+
+En mode standalone, `OrganisationComptable` et `AccesEntrepriseComptable` gèrent les appartenances locales. Si un utilisateur possède plusieurs entreprises, le client sélectionne le contexte avec le header `X-Enterprise-ID`.
 
 ## Documentation
 
