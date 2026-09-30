@@ -35,6 +35,7 @@ dependencies = [
 
 [project.optional-dependencies]
 rest = ["djangorestframework>=3.14", "django-filter"]
+server = ["gunicorn>=23", "psycopg[binary]>=3.1"]
 comptes = ["django-comptes"]
 export = ["openpyxl", "reportlab", "xlwt"]
 
