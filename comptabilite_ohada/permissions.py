@@ -36,7 +36,27 @@ class AccountingTenantPermission(BasePermission):
         if getattr(user, "is_superuser", False):
             return True
 
-        # Un projet hôte peut fournir son propre contexte d'entreprise.
+        if getattr(user, "is_api_client", False):
+            scopes = set(getattr(user, "api_scopes", set()) or set())
+            if "*" in scopes:
+                return True
+            action = getattr(view, "action", None)
+            if request.method in SAFE_METHODS:
+                return "accounting.read" in scopes
+            if action in {"create", "retry"} and view.__class__.__name__ == "EvenementMetierViewSet":
+                return (
+                    "accounting.events.write" in scopes
+                    or "accounting.write" in scopes
+                )
+            if action in self.validation_actions:
+                return (
+                    "accounting.validate" in scopes
+                    or "accounting.write" in scopes
+                )
+            return "accounting.write" in scopes
+
+        # Un projet hôte peut fournir son propre contexte d'entreprise et
+        # ses permissions propres.
         if str(getattr(user, "entreprise_id", "") or ""):
             return True
 
