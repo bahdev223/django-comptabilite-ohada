@@ -47,39 +47,56 @@ class AnalytiqueService:
         entreprise_id = ligne.ecriture.entreprise_id or ""
         affectations = []
 
-        for code_dimension, raw_value in dimensions.items():
-            if isinstance(raw_value, dict):
-                code_valeur = raw_value.get("code") or raw_value.get("id") or raw_value.get("external_id")
-                libelle = raw_value.get("libelle") or raw_value.get("label")
-                external_id = raw_value.get("external_id") or raw_value.get("id") or ""
-                metadata = raw_value.get("metadata") or {}
-            else:
-                code_valeur = raw_value
-                libelle = str(raw_value)
-                external_id = str(raw_value)
-                metadata = {}
+        for code_dimension, raw_values in dimensions.items():
+            values = raw_values if isinstance(raw_values, list) else [raw_values]
 
-            if code_valeur in (None, ""):
-                raise ValidationError(f"Valeur analytique manquante pour {code_dimension}.")
+            for raw_value in values:
+                if isinstance(raw_value, dict):
+                    code_valeur = (
+                        raw_value.get("code")
+                        or raw_value.get("id")
+                        or raw_value.get("external_id")
+                    )
+                    libelle = raw_value.get("libelle") or raw_value.get("label")
+                    external_id = raw_value.get("external_id") or raw_value.get("id") or ""
+                    metadata = raw_value.get("metadata") or {}
+                    pourcentage = raw_value.get("pourcentage", 100)
+                    montant = raw_value.get("montant")
+                else:
+                    code_valeur = raw_value
+                    libelle = str(raw_value)
+                    external_id = str(raw_value)
+                    metadata = {}
+                    pourcentage = 100
+                    montant = None
 
-            dimension = cls.get_or_create_dimension(
-                entreprise_id=entreprise_id,
-                code=code_dimension,
-            )
-            valeur = cls.get_or_create_valeur(
-                dimension=dimension,
-                code=code_valeur,
-                libelle=libelle,
-                external_id=external_id,
-                metadata=metadata,
-            )
-            affectation, _ = AffectationAnalytique.objects.update_or_create(
-                ligne=ligne,
-                dimension=dimension,
-                valeur=valeur,
-                defaults={"pourcentage": raw_value.get("pourcentage", 100) if isinstance(raw_value, dict) else 100,
-                          "montant": raw_value.get("montant") if isinstance(raw_value, dict) else None},
-            )
-            affectations.append(affectation)
+                if code_valeur in (None, ""):
+                    raise ValidationError(
+                        f"Valeur analytique manquante pour {code_dimension}."
+                    )
+
+                dimension = cls.get_or_create_dimension(
+                    entreprise_id=entreprise_id,
+                    code=code_dimension,
+                )
+                valeur = cls.get_or_create_valeur(
+                    dimension=dimension,
+                    code=code_valeur,
+                    libelle=libelle,
+                    external_id=external_id,
+                    metadata=metadata,
+                )
+                affectation, _ = AffectationAnalytique.objects.update_or_create(
+                    ligne=ligne,
+                    dimension=dimension,
+                    valeur=valeur,
+                    defaults={
+                        "pourcentage": pourcentage,
+                        "montant": montant,
+                    },
+                )
+                affectation.full_clean()
+                affectation.save()
+                affectations.append(affectation)
 
         return affectations
