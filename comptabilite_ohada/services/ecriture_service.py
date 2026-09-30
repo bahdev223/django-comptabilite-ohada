@@ -499,7 +499,7 @@ class EcritureService:
             })
         else:
             lignes.append({
-                "compte": cls.get_compte("404", entreprise_id),
+                "compte": cls.get_compte("4812", entreprise_id),
                 "credit": montant,
                 "libelle": libelle,
             })
