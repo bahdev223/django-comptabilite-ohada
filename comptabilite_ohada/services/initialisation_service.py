@@ -89,9 +89,10 @@ class InitialisationService:
             ("ST", "Stock", "STOCK"),
             ("INV", "Immobilisations", "IMMO"),
             ("TR", "Transferts", "BANQUE"),
+            ("CL", "Clôture", "OD"),
         ]
         for code, libelle, type_j in defaults:
-            JournalComptable.objects.get_or_create(
+            JournalComptable.objects.update_or_create(
                 entreprise_id=entreprise_id or "",
                 code=code,
                 defaults={"libelle": libelle, "type_journal": type_j, "actif": True},
