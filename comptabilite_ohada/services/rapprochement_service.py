@@ -1,10 +1,11 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
 from ..models import ReleveBancaire, LigneReleveBancaire
-from ..models import EcritureComptable, LigneEcritureComptable
+from ..models import CompteComptable
 from ..signals.ecriture import rapprochement_valide
 
 
@@ -15,8 +16,20 @@ class RapprochementService:
     @transaction.atomic
     def creer_releve(compte_comptable_code, date_debut, date_fin,
                      solde_ouverture, solde_cloture, entreprise_id=""):
+        entreprise_id = entreprise_id or ""
+        compte = CompteComptable.objects.filter(
+            entreprise_id=entreprise_id,
+            code=compte_comptable_code,
+            actif=True,
+        ).first()
+        if compte is None or not compte.code.startswith("5"):
+            raise ValidationError(
+                "Le compte de rapprochement doit être un compte de trésorerie actif de l'entreprise."
+            )
+        if date_fin < date_debut:
+            raise ValidationError("La date de fin du relevé précède la date de début.")
         return ReleveBancaire.objects.create(
-            entreprise_id=entreprise_id or "",
+            entreprise_id=entreprise_id,
             compte_comptable_code=compte_comptable_code,
             date_debut=date_debut,
             date_fin=date_fin,
@@ -26,6 +39,10 @@ class RapprochementService:
 
     @staticmethod
     def ajouter_ligne(releve, date_operation, libelle, montant, sens, reference=""):
+        if releve.statut == "RAPPROCHE":
+            raise ValidationError("Un relevé rapproché est verrouillé.")
+        if montant <= 0:
+            raise ValidationError("Le montant d'une ligne de relevé doit être positif.")
         return LigneReleveBancaire.objects.create(
             releve=releve,
             date_operation=date_operation,
@@ -37,6 +54,8 @@ class RapprochementService:
 
     @staticmethod
     def pointer(releve, ligne_id):
+        if releve.statut == "RAPPROCHE":
+            raise ValidationError("Un relevé rapproché est verrouillé.")
         ligne = releve.lignes.filter(id=ligne_id).first()
         if ligne:
             ligne.pointe = True
@@ -45,6 +64,8 @@ class RapprochementService:
 
     @staticmethod
     def depointer(releve, ligne_id):
+        if releve.statut == "RAPPROCHE":
+            raise ValidationError("Un relevé rapproché est verrouillé.")
         ligne = releve.lignes.filter(id=ligne_id).first()
         if ligne:
             ligne.pointe = False
