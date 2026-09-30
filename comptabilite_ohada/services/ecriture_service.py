@@ -68,7 +68,9 @@ class EcritureService:
     @transaction.atomic
     def creer_ecriture(cls, reference, date_ecriture, libelle, journal, lignes,
                        exercice=None, piece=None, validee=True, user=None,
-                       entreprise_id=None):
+                       entreprise_id=None, source_system="", source_type="",
+                       source_id="", source_reference="", idempotency_key=None,
+                       metadata=None, reversal_of=None):
         if isinstance(date_ecriture, datetime):
             date_ecriture = date_ecriture.date()
         elif isinstance(date_ecriture, str):
@@ -83,6 +85,14 @@ class EcritureService:
                 or getattr(journal, "entreprise_id", "")
                 or ""
             )
+        if idempotency_key:
+            existante = EcritureComptable.objects.filter(
+                entreprise_id=entreprise_id or "",
+                idempotency_key=idempotency_key,
+            ).first()
+            if existante:
+                return existante
+
         if exercice is None:
             exercice = cls.get_exercice(date_ecriture, entreprise_id=entreprise_id)
         # get_exercice rend None quand aucun exercice ouvert ne couvre la
@@ -153,17 +163,30 @@ class EcritureService:
             exercice=exercice,
             validee=validee,
             created_by=user.username if hasattr(user, "username") and user else str(user or ""),
+            validated_by=(user.username if hasattr(user, "username") and user else str(user or "")) if validee else None,
+            date_validation=timezone.now() if validee else None,
             entreprise_id=entreprise_id or "",
+            source_system=source_system or "",
+            source_type=source_type or "",
+            source_id=str(source_id or ""),
+            source_reference=source_reference or "",
+            idempotency_key=idempotency_key or None,
+            metadata=metadata or {},
+            reversal_of=reversal_of,
         )
 
         for ligne in lignes:
-            LigneEcritureComptable.objects.create(
+            ligne_obj = LigneEcritureComptable.objects.create(
                 ecriture=ecriture,
                 compte=ligne["compte"],
                 debit=ligne.get("debit", Decimal("0.00")),
                 credit=ligne.get("credit", Decimal("0.00")),
                 libelle=ligne.get("libelle", libelle),
             )
+            dimensions = ligne.get("dimensions") or {}
+            if dimensions:
+                from .analytique_service import AnalytiqueService
+                AnalytiqueService.affecter_ligne(ligne_obj, dimensions)
 
         if validee:
             ecriture_validee.send(
