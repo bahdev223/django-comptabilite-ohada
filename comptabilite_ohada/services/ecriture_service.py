@@ -144,6 +144,18 @@ class EcritureService:
         # la contrainte NOT NULL, bien apres le point ou l'on aurait pu
         # expliquer le probleme. On nomme le compte manquant.
         for position, ligne in enumerate(lignes, start=1):
+            debit = Decimal(str(ligne.get("debit", 0) or 0))
+            credit = Decimal(str(ligne.get("credit", 0) or 0))
+            if debit < 0 or credit < 0:
+                raise ValidationError(f"Ligne {position} : les montants doivent être positifs.")
+            if debit > 0 and credit > 0:
+                raise ValidationError(
+                    f"Ligne {position} : une ligne ne peut pas porter débit et crédit."
+                )
+            if debit == 0 and credit == 0:
+                raise ValidationError(
+                    f"Ligne {position} : un débit ou un crédit est obligatoire."
+                )
             compte = ligne.get("compte")
             if compte is None:
                 raise ValidationError(
