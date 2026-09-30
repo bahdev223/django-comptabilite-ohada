@@ -19,6 +19,7 @@ from .models import (
     RegleEvenementComptable,
     OrganisationComptable,
     AccesEntrepriseComptable,
+    ApplicationClienteComptable,
 )
 
 
@@ -115,3 +116,19 @@ class AccesEntrepriseComptableAdmin(admin.ModelAdmin):
     list_display = ("user", "entreprise", "role", "actif")
     list_filter = ("role", "actif", "entreprise")
     search_fields = ("user__username", "entreprise__code", "entreprise__nom")
+
+
+
+@admin.register(ApplicationClienteComptable)
+class ApplicationClienteComptableAdmin(admin.ModelAdmin):
+    list_display = (
+        "nom", "entreprise", "prefixe", "actif", "last_used_at", "created_at",
+    )
+    list_filter = ("actif", "entreprise")
+    search_fields = ("nom", "prefixe", "entreprise__code")
+    readonly_fields = ("prefixe", "secret_hash", "last_used_at", "created_at")
+
+    def has_add_permission(self, request):
+        # La création passe par creer_cle_api afin que le secret brut soit
+        # affiché exactement une fois.
+        return False
