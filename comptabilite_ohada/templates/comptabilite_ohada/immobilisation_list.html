@@ -10,9 +10,10 @@
             <thead>
                 <tr>
                     <th>Code</th>
-                    <th>D&eacute;signation</th>
-                    <th>Valeur</th>
-                    <th>Mode amort.</th>
+                    <th>Libell&eacute;</th>
+                    <th>Type</th>
+                    <th class="text-end">Valeur d'origine</th>
+                    <th class="text-end">VNC</th>
                     <th>Statut</th>
                 </tr>
             </thead>
@@ -20,13 +21,14 @@
                 {% for immo in immobilisations %}
                 <tr>
                     <td><a href="{% url 'comptabilite:immobilisation_detail' immo.pk %}">{{ immo.code }}</a></td>
-                    <td>{{ immo.designation }}</td>
-                    <td class="text-end">{{ immo.valeur_acquisition|floatformat:2 }}</td>
-                    <td>{{ immo.get_mode_amortissement_display }}</td>
+                    <td>{{ immo.libelle }}</td>
+                    <td>{{ immo.get_type_immobilisation_display }}</td>
+                    <td class="text-end">{{ immo.valeur_originale|floatformat:2 }}</td>
+                    <td class="text-end">{{ immo.valeur_nette_comptable|floatformat:2 }}</td>
                     <td>{{ immo.get_statut_display }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="5" class="text-muted">Aucune immobilisation.</td></tr>
+                <tr><td colspan="6" class="text-muted">Aucune immobilisation.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
