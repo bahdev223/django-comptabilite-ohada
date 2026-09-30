@@ -205,7 +205,9 @@ class EcritureService:
     @classmethod
     @transaction.atomic
     def creer_ecriture_vente(cls, compte_caisse_code, montant, libelle,
-                             compte_produit_code, user=None, entreprise_id="", piece=None):
+                             compte_produit_code, user=None, entreprise_id="", piece=None,
+                             source_system="", source_type="", source_id="",
+                             idempotency_key=None):
         journal = cls.get_or_create_journal("VN", "Ventes", "VENTES", entreprise_id)
         compte_caisse = cls.get_compte(compte_caisse_code, entreprise_id)
         compte_produit = cls.get_compte(compte_produit_code, entreprise_id)
@@ -213,7 +215,9 @@ class EcritureService:
         return cls.creer_ecriture(ref, date.today(), libelle, journal, [
             {"compte": compte_caisse, "debit": montant, "libelle": "Encaissement vente"},
             {"compte": compte_produit, "credit": montant, "libelle": libelle},
-        ], user=user, piece=piece, entreprise_id=entreprise_id)
+        ], user=user, piece=piece, entreprise_id=entreprise_id,
+           source_system=source_system, source_type=source_type,
+           source_id=source_id, idempotency_key=idempotency_key)
 
     @classmethod
     @transaction.atomic
@@ -261,7 +265,8 @@ class EcritureService:
     @transaction.atomic
     def creer_ecriture_charge(cls, compte_caisse_code, montant, libelle,
                               compte_charge_code, date_operation=None, user=None,
-                              entreprise_id="", piece=None):
+                              entreprise_id="", piece=None, source_system="",
+                              source_type="", source_id="", idempotency_key=None):
         if date_operation is None:
             date_operation = date.today()
         journal = cls._journal_paiement(compte_caisse_code, entreprise_id)
@@ -273,7 +278,9 @@ class EcritureService:
             {"compte": cc, "debit": montant, "libelle": libelle},
             {"compte": compte_caisse, "credit": montant, "libelle": f"Paiement {libelle}"},
         ], piece=piece or f"DEP-{date_operation.strftime('%Y%m%d')}", user=user,
-           entreprise_id=entreprise_id)
+           entreprise_id=entreprise_id, source_system=source_system,
+           source_type=source_type, source_id=source_id,
+           idempotency_key=idempotency_key)
 
     # ─── Trésorerie ───────────────────────────────────────────
 
@@ -286,7 +293,9 @@ class EcritureService:
     @classmethod
     @transaction.atomic
     def creer_ecriture_transfert(cls, compte_source_code, compte_dest_code,
-                                 montant, libelle, user=None, entreprise_id="", piece=None):
+                                 montant, libelle, user=None, entreprise_id="", piece=None,
+                                 source_system="", source_type="", source_id="",
+                                 idempotency_key=None):
         journal = cls.get_or_create_journal("TR", "Transferts", "CAISSE", entreprise_id)
         ref = cls.generer_reference("TRF")
         return cls.creer_ecriture(ref, date.today(), libelle, journal, [
@@ -294,7 +303,9 @@ class EcritureService:
              "libelle": f"Transfert reçu"},
             {"compte": cls.get_compte(compte_source_code, entreprise_id), "credit": montant,
              "libelle": f"Transfert émis"},
-        ], user=user, piece=piece, entreprise_id=entreprise_id)
+        ], user=user, piece=piece, entreprise_id=entreprise_id,
+           source_system=source_system, source_type=source_type,
+           source_id=source_id, idempotency_key=idempotency_key)
 
     @classmethod
     @transaction.atomic
