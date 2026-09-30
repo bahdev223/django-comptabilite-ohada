@@ -61,12 +61,29 @@ class ExerciceService:
         return exercice
 
     @staticmethod
-    def rouvrir(exercice):
+    @transaction.atomic
+    def rouvrir(exercice, user=None):
         if not exercice.cloture:
             raise ValueError(f"Exercice {exercice.code} est déjà ouvert")
+
         exercice.cloture = False
         exercice.date_cloture = None
-        exercice.save()
+        exercice.save(update_fields=["cloture", "date_cloture"])
+
+        cloture = EcritureComptable.objects.filter(
+            exercice=exercice,
+            validee=True,
+            source_system="comptabilite_ohada",
+            source_type="fiscal_closure",
+            source_id=str(exercice.pk),
+        ).order_by("-created_at").first()
+        if cloture and not cloture.reversals.exists():
+            ValidationService.annuler_ecriture(
+                cloture,
+                user=user,
+                raison=f"Réouverture exercice {exercice.code}",
+            )
+
         return exercice
 
 
@@ -92,8 +109,11 @@ class ValidationService:
     def annuler_ecriture(ecriture, user=None, raison=""):
         if not ecriture.validee:
             raise ValueError("Seules les écritures validées peuvent être annulées")
+        existante = ecriture.reversals.filter(validee=True).order_by("-created_at").first()
+        if existante:
+            return existante
         journal = ecriture.journal
-        ref = f"ANNULE-{ecriture.reference}"
+        ref = f"ANNULE-{ecriture.reference}"[:50]
         lignes_inversees = []
         for l in ecriture.lignes.all():
             lignes_inversees.append({
@@ -117,4 +137,5 @@ class ValidationService:
             source_reference=ecriture.reference,
             metadata={"raison": raison},
             reversal_of=ecriture,
+            idempotency_key=f"reversal:{ecriture.pk}",
         )
