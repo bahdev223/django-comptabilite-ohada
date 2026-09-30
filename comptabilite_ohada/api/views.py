@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes as api_permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from ..permissions import AccountingTenantPermission
 from ..tenant import resolve_entreprise_id
@@ -33,6 +33,16 @@ from .serializers import (
     EvenementIngestSerializer,
     OrganisationComptableSerializer,
 )
+
+
+@api_view(["GET"])
+@api_permission_classes([AllowAny])
+def health_view(request):
+    return Response({
+        "status": "ok",
+        "service": "django-comptabilite-ohada",
+        "api": "v1",
+    })
 
 
 class EntrepriseScopedViewSetMixin:
