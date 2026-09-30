@@ -6,7 +6,7 @@ from .configuration import ConfigurationComptable, SoldeInitialComptable
 from .amortissement import Immobilisation, PlanAmortissement
 from .rapprochement import ReleveBancaire, LigneReleveBancaire
 from .analytique import DimensionAnalytique, ValeurAnalytique, AffectationAnalytique
-from .evenement import EvenementMetier
+from .evenement import EvenementMetier, RegleEvenementComptable
 
 __all__ = [
     "CompteComptable",
@@ -28,4 +28,5 @@ __all__ = [
     "ValeurAnalytique",
     "AffectationAnalytique",
     "EvenementMetier",
+    "RegleEvenementComptable",
 ]
