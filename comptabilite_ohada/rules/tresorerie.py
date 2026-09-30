@@ -1,6 +1,6 @@
 from .engine import RegleComptable, EcritureRegle, LigneRegle, moteur
 from decimal import Decimal
-from datetime import date
+from datetime import date, datetime
 
 
 class RegleEncaissementClient(RegleComptable):
@@ -13,9 +13,10 @@ class RegleEncaissementClient(RegleComptable):
         montant = contexte.get("montant", 0)
         if montant <= 0:
             return None
+        date_operation = contexte.get("date", date.today())
         return EcritureRegle(
-            reference=f"EN-{date.today().strftime('%Y%m%d%H%M%S')}",
-            date_ecriture=date.today(),
+            reference=f"EN-{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
+            date_ecriture=date_operation,
             libelle=contexte.get("libelle", "Encaissement client"),
             journal_code="TR",
             lignes=[
@@ -37,9 +38,10 @@ class ReglePaiementFournisseur(RegleComptable):
         montant = contexte.get("montant", 0)
         if montant <= 0:
             return None
+        date_operation = contexte.get("date", date.today())
         return EcritureRegle(
-            reference=f"PF-{date.today().strftime('%Y%m%d%H%M%S')}",
-            date_ecriture=date.today(),
+            reference=f"PF-{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
+            date_ecriture=date_operation,
             libelle=contexte.get("libelle", "Paiement fournisseur"),
             journal_code="TR",
             lignes=[
