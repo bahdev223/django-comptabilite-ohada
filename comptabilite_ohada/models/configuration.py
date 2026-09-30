@@ -28,6 +28,7 @@ class ConfigurationComptable(models.Model):
 
     compte_caisse_defaut = models.CharField(_("Compte caisse défaut"), max_length=20, default="571")
     compte_banque_defaut = models.CharField(_("Compte banque défaut"), max_length=20, default="521")
+    compte_mobile_money_defaut = models.CharField(_("Compte Mobile Money défaut"), max_length=20, default="552")
     compte_client_defaut = models.CharField(_("Compte client défaut"), max_length=20, default="411")
     compte_fournisseur_defaut = models.CharField(_("Compte fournisseur défaut"), max_length=20, default="401")
 
