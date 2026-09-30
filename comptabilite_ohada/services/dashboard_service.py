@@ -12,11 +12,17 @@ class DashboardService:
     """Agrégation des données pour le tableau de bord comptable."""
 
     @staticmethod
-    def synthese(exercice=None):
+    def synthese(exercice=None, entreprise_id=""):
         if exercice is None:
-            exercice = ExerciceComptable.objects.filter(cloture=False).first()
+            exercice = ExerciceComptable.objects.filter(
+                cloture=False, entreprise_id=entreprise_id or ""
+            ).first()
+        else:
+            entreprise_id = exercice.entreprise_id or ""
 
-        base = LigneEcritureComptable.objects.filter(ecriture__validee=True)
+        base = LigneEcritureComptable.objects.filter(
+            ecriture__validee=True, ecriture__entreprise_id=entreprise_id or ""
+        )
         if exercice:
             base = base.filter(
                 ecriture__date_ecriture__gte=exercice.date_debut,
@@ -38,7 +44,9 @@ class DashboardService:
         charges = base.filter(compte__code__startswith="6").aggregate(t=Sum("debit"))["t"] or Decimal("0.00")
         produits = base.filter(compte__code__startswith="7").aggregate(t=Sum("credit"))["t"] or Decimal("0.00")
 
-        nb_ecritures = EcritureComptable.objects.filter(validee=True)
+        nb_ecritures = EcritureComptable.objects.filter(
+            validee=True, entreprise_id=entreprise_id or ""
+        )
         if exercice:
             nb_ecritures = nb_ecritures.filter(exercice=exercice)
 
@@ -54,10 +62,11 @@ class DashboardService:
         }
 
     @staticmethod
-    def evolution_tresorerie(jours=30):
+    def evolution_tresorerie(jours=30, entreprise_id=""):
         depuis = timezone.now().date() - timedelta(days=jours)
         lignes = LigneEcritureComptable.objects.filter(
             ecriture__validee=True,
+            ecriture__entreprise_id=entreprise_id or "",
             ecriture__date_ecriture__gte=depuis,
         ).filter(
             Q(compte__code__startswith="57") |
@@ -102,27 +111,35 @@ class DashboardService:
         return alerts
 
     @staticmethod
-    def compter_ecritures():
-        return EcritureComptable.objects.count()
+    def compter_ecritures(entreprise_id=""):
+        return EcritureComptable.objects.filter(entreprise_id=entreprise_id or "").count()
 
     @staticmethod
-    def compter_ecritures_non_validees():
-        return EcritureComptable.objects.filter(validee=False).count()
+    def compter_ecritures_non_validees(entreprise_id=""):
+        return EcritureComptable.objects.filter(
+            validee=False, entreprise_id=entreprise_id or ""
+        ).count()
 
     @staticmethod
-    def dernieres_ecritures(limit=10):
-        return EcritureComptable.objects.select_related("journal", "exercice").order_by(
+    def dernieres_ecritures(limit=10, entreprise_id=""):
+        return EcritureComptable.objects.filter(
+            entreprise_id=entreprise_id or ""
+        ).select_related("journal", "exercice").order_by(
             "-date_ecriture", "-created_at"
         )[:limit]
 
     @staticmethod
-    def exercice_courant():
-        exercice = ExerciceComptable.objects.filter(cloture=False).first()
+    def exercice_courant(entreprise_id=""):
+        exercice = ExerciceComptable.objects.filter(
+            cloture=False, entreprise_id=entreprise_id or ""
+        ).first()
         return str(exercice) if exercice else None
 
     @staticmethod
-    def totaux_par_journal():
+    def totaux_par_journal(entreprise_id=""):
         from django.db.models import Sum
-        return EcritureComptable.objects.values("journal__code").annotate(
+        return EcritureComptable.objects.filter(
+            entreprise_id=entreprise_id or ""
+        ).values("journal__code").annotate(
             total=Sum("lignes__debit")
         ).order_by("journal__code")
