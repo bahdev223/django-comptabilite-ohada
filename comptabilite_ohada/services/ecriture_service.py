@@ -52,7 +52,7 @@ class EcritureService:
 
     @classmethod
     def get_compte_par_type_caisse(cls, type_caisse, entreprise_id=""):
-        mapping = {"ESPECES": "571", "BANQUE": "521", "MOBILE_MONEY": "581"}
+        mapping = {"ESPECES": "571", "BANQUE": "521", "MOBILE_MONEY": "552"}
         code = mapping.get(type_caisse, "571")
         return cls.get_compte(code, entreprise_id=entreprise_id)
 
