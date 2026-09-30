@@ -2,6 +2,7 @@ from django.views.generic import ListView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 
 from ..models import ReleveBancaire
+from ..tenant import resolve_entreprise_id
 
 
 class RapprochementListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -11,7 +12,7 @@ class RapprochementListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
     permission_required = "comptabilite_ohada.view_relevebancaire"
 
     def get_queryset(self):
-        entreprise_id = str(getattr(self.request.user, "entreprise_id", "") or "")
+        entreprise_id = resolve_entreprise_id(self.request)
         return super().get_queryset().filter(entreprise_id=entreprise_id)
 
 
@@ -22,7 +23,7 @@ class RapprochementDetailView(LoginRequiredMixin, PermissionRequiredMixin, Detai
     permission_required = "comptabilite_ohada.view_relevebancaire"
 
     def get_queryset(self):
-        entreprise_id = str(getattr(self.request.user, "entreprise_id", "") or "")
+        entreprise_id = resolve_entreprise_id(self.request)
         return super().get_queryset().filter(entreprise_id=entreprise_id)
 
     def get_context_data(self, **kwargs):
