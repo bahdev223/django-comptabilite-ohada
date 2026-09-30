@@ -440,7 +440,7 @@ class EcritureService:
     def creer_ecriture_cloture_exercice(cls, exercice, resultat, user=None):
         entreprise_id = exercice.entreprise_id or ""
         journal = cls.get_or_create_journal("CL", "Clôture", "OD", entreprise_id)
-        ref = f"RES-{exercice.code}"
+        ref = cls.generer_reference(f"RES-{exercice.code}")
         libelle = f"Affectation résultat exercice {exercice.code}"
         if resultat >= 0:
             lignes = [
@@ -457,5 +457,13 @@ class EcritureService:
                 {"compte": cls.get_compte("129", entreprise_id), "credit": r,
                  "libelle": f"Perte {exercice.code}"},
             ]
-        return cls.creer_ecriture(ref, exercice.date_fin, libelle, journal, lignes,
-                                  exercice=exercice, user=user, entreprise_id=entreprise_id)
+        return cls.creer_ecriture(
+            ref, exercice.date_fin, libelle, journal, lignes,
+            exercice=exercice,
+            user=user,
+            entreprise_id=entreprise_id,
+            source_system="comptabilite_ohada",
+            source_type="fiscal_closure",
+            source_id=str(exercice.pk),
+            source_reference=exercice.code,
+        )
