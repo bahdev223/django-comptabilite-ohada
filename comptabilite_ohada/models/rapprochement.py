@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -31,6 +32,25 @@ class ReleveBancaire(models.Model):
     def __str__(self):
         return f"Relevé {self.compte_comptable_code} — {self.date_debut} → {self.date_fin}"
 
+    def clean(self):
+        if self.date_debut and self.date_fin and self.date_fin < self.date_debut:
+            raise ValidationError("La date de fin du relevé précède la date de début.")
+        from .compte import CompteComptable
+        if self.compte_comptable_code:
+            compte = CompteComptable.objects.filter(
+                entreprise_id=self.entreprise_id or "",
+                code=self.compte_comptable_code,
+                actif=True,
+            ).first()
+            if compte is None or not compte.code.startswith("5"):
+                raise ValidationError(
+                    "Le compte bancaire doit être un compte de trésorerie actif de l'entreprise."
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
 
 class LigneReleveBancaire(models.Model):
     """Ligne d'un relevé bancaire."""
@@ -57,3 +77,18 @@ class LigneReleveBancaire(models.Model):
 
     def __str__(self):
         return f"{self.date_operation} - {self.libelle} - {self.montant:,.0f}"
+
+    def clean(self):
+        if self.montant <= 0:
+            raise ValidationError("Le montant d'une ligne de relevé doit être positif.")
+
+    def save(self, *args, **kwargs):
+        if self.releve_id and self.releve.statut == "RAPPROCHE":
+            raise ValidationError("Un relevé rapproché est verrouillé.")
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.releve.statut == "RAPPROCHE":
+            raise ValidationError("Un relevé rapproché est verrouillé.")
+        return super().delete(*args, **kwargs)
