@@ -12,6 +12,11 @@ from .models import (
     PlanAmortissement,
     ReleveBancaire,
     SoldeInitialComptable,
+    DimensionAnalytique,
+    ValeurAnalytique,
+    AffectationAnalytique,
+    EvenementMetier,
+    RegleEvenementComptable,
 )
 
 
@@ -49,3 +54,38 @@ admin.site.register(Immobilisation)
 admin.site.register(PlanAmortissement)
 admin.site.register(ReleveBancaire)
 admin.site.register(LigneReleveBancaire)
+
+
+
+@admin.register(DimensionAnalytique)
+class DimensionAnalytiqueAdmin(admin.ModelAdmin):
+    list_display = ("entreprise_id", "code", "libelle", "actif")
+    list_filter = ("actif", "entreprise_id")
+    search_fields = ("code", "libelle")
+
+
+@admin.register(ValeurAnalytique)
+class ValeurAnalytiqueAdmin(admin.ModelAdmin):
+    list_display = ("dimension", "code", "libelle", "external_id", "actif")
+    list_filter = ("actif", "dimension")
+    search_fields = ("code", "libelle", "external_id")
+
+
+@admin.register(EvenementMetier)
+class EvenementMetierAdmin(admin.ModelAdmin):
+    list_display = (
+        "type_evenement", "source_system", "source_id", "statut",
+        "entreprise_id", "created_at",
+    )
+    list_filter = ("statut", "type_evenement", "source_system", "entreprise_id")
+    search_fields = ("idempotency_key", "source_id", "source_reference")
+
+
+@admin.register(RegleEvenementComptable)
+class RegleEvenementComptableAdmin(admin.ModelAdmin):
+    list_display = ("type_evenement", "code_regle", "entreprise_id", "actif")
+    list_filter = ("actif", "entreprise_id")
+    search_fields = ("type_evenement", "code_regle")
+
+
+admin.site.register(AffectationAnalytique)
