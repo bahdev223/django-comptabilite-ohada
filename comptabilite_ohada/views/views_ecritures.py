@@ -6,10 +6,11 @@ from django.contrib import messages
 
 from ..models import EcritureComptable
 from ..services.exercice_service import ValidationService
+from ..tenant import resolve_entreprise_id
 
 
 def _entreprise_id(request):
-    return str(getattr(request.user, "entreprise_id", "") or "")
+    return resolve_entreprise_id(request)
 
 
 class EcritureListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
