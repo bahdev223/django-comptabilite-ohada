@@ -89,7 +89,9 @@ class EcritureComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewS
         exercice_id = request.query_params.get("exercice")
         service = BalanceService()
         entreprise_id = self.get_entreprise_id()
-        exercice = self.get_queryset().filter(pk=exercice_id).first() if exercice_id else None
+        exercice = ExerciceComptable.objects.filter(
+            pk=exercice_id, entreprise_id=entreprise_id
+        ).first() if exercice_id else None
         data = service.balance(exercice=exercice, entreprise_id=entreprise_id)
         return Response(data)
 
@@ -99,7 +101,9 @@ class EcritureComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewS
         exercice_id = request.query_params.get("exercice")
         service = GrandLivreService()
         entreprise_id = self.get_entreprise_id()
-        exercice = self.get_queryset().filter(pk=exercice_id).first() if exercice_id else None
+        exercice = ExerciceComptable.objects.filter(
+            pk=exercice_id, entreprise_id=entreprise_id
+        ).first() if exercice_id else None
         data = service.grand_livre(
             compte_code=compte_code, exercice=exercice, entreprise_id=entreprise_id
         )
@@ -110,7 +114,9 @@ class EcritureComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewS
         exercice_id = request.query_params.get("exercice")
         service = BilanService()
         entreprise_id = self.get_entreprise_id()
-        exercice = self.get_queryset().filter(pk=exercice_id).first() if exercice_id else None
+        exercice = ExerciceComptable.objects.filter(
+            pk=exercice_id, entreprise_id=entreprise_id
+        ).first() if exercice_id else None
         bilan = service.bilan(exercice=exercice, entreprise_id=entreprise_id)
         return Response(bilan)
 
@@ -119,7 +125,9 @@ class EcritureComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewS
         exercice_id = request.query_params.get("exercice")
         service = BilanService()
         entreprise_id = self.get_entreprise_id()
-        exercice = self.get_queryset().filter(pk=exercice_id).first() if exercice_id else None
+        exercice = ExerciceComptable.objects.filter(
+            pk=exercice_id, entreprise_id=entreprise_id
+        ).first() if exercice_id else None
         resultat = service.compte_resultat(exercice=exercice, entreprise_id=entreprise_id)
         return Response(resultat)
 
