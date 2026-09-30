@@ -95,12 +95,19 @@ class CompteComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet
     def solde(self, request, pk=None):
         compte = self.get_object()
         exercice_id = request.query_params.get("exercice")
-        qs = LigneEcritureComptable.objects.filter(
-            compte=compte, ecriture__validee=True,
-        )
-        total_debit = qs.aggregate(total=Sum("debit"))["total"] or 0
-        total_credit = qs.aggregate(total=Sum("credit"))["total"] or 0
-        return Response({"solde": float(total_debit) - float(total_credit)})
+        exercice = None
+        if exercice_id:
+            exercice = ExerciceComptable.objects.filter(
+                pk=exercice_id,
+                entreprise_id=self.get_entreprise_id(),
+            ).first()
+            if exercice is None:
+                raise DRFValidationError("Exercice introuvable pour cette entreprise.")
+        return Response({
+            "solde": BalanceService.solde_compte(
+                compte, exercice=exercice
+            )
+        })
 
 
 class EcritureComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
@@ -113,6 +120,19 @@ class EcritureComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewS
         if self.action == "create":
             return EcritureCreateSerializer
         return EcritureComptableSerializer
+
+    def _resolve_exercice(self, exercice_id):
+        if not exercice_id:
+            return None
+        exercice = ExerciceComptable.objects.filter(
+            pk=exercice_id,
+            entreprise_id=self.get_entreprise_id(),
+        ).first()
+        if exercice is None:
+            raise DRFValidationError(
+                "Exercice introuvable pour cette entreprise."
+            )
+        return exercice
 
     def _ensure_mutable(self, ecriture):
         if ecriture.validee:
@@ -157,11 +177,26 @@ class EcritureComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewS
         exercice_id = request.query_params.get("exercice")
         service = BalanceService()
         entreprise_id = self.get_entreprise_id()
-        exercice = ExerciceComptable.objects.filter(
-            pk=exercice_id, entreprise_id=entreprise_id
-        ).first() if exercice_id else None
-        data = service.balance(exercice=exercice, entreprise_id=entreprise_id)
-        return Response(data)
+        exercice = self._resolve_exercice(exercice_id)
+        data = service.balance(
+            exercice=exercice, entreprise_id=entreprise_id
+        )
+        payload = []
+        for item in data:
+            compte = item["compte"]
+            payload.append({
+                "compte": {
+                    "id": compte.pk,
+                    "code": compte.code,
+                    "libelle": compte.libelle,
+                },
+                "total_debit": item["total_debit"],
+                "total_credit": item["total_credit"],
+                "solde": item["solde"],
+                "solde_debiteur": item["solde_debiteur"],
+                "solde_crediteur": item["solde_crediteur"],
+            })
+        return Response(payload)
 
     @action(detail=False, methods=["get"])
     def grand_livre(self, request):
@@ -169,22 +204,34 @@ class EcritureComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewS
         exercice_id = request.query_params.get("exercice")
         service = GrandLivreService()
         entreprise_id = self.get_entreprise_id()
-        exercice = ExerciceComptable.objects.filter(
-            pk=exercice_id, entreprise_id=entreprise_id
-        ).first() if exercice_id else None
+        exercice = self._resolve_exercice(exercice_id)
         data = service.grand_livre(
-            compte_code=compte_code, exercice=exercice, entreprise_id=entreprise_id
+            compte_code=compte_code,
+            exercice=exercice,
+            entreprise_id=entreprise_id,
         )
-        return Response(data)
+        return Response([
+            {
+                "date": item["date"],
+                "reference": item["reference"],
+                "libelle": item["libelle"],
+                "compte": {
+                    "id": item["compte"].pk,
+                    "code": item["compte"].code,
+                    "libelle": item["compte"].libelle,
+                },
+                "debit": item["debit"],
+                "credit": item["credit"],
+            }
+            for item in data
+        ])
 
     @action(detail=False, methods=["get"])
     def bilan(self, request):
         exercice_id = request.query_params.get("exercice")
         service = BilanService()
         entreprise_id = self.get_entreprise_id()
-        exercice = ExerciceComptable.objects.filter(
-            pk=exercice_id, entreprise_id=entreprise_id
-        ).first() if exercice_id else None
+        exercice = self._resolve_exercice(exercice_id)
         bilan = service.bilan(exercice=exercice, entreprise_id=entreprise_id)
         return Response(bilan)
 
@@ -193,9 +240,7 @@ class EcritureComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewS
         exercice_id = request.query_params.get("exercice")
         service = BilanService()
         entreprise_id = self.get_entreprise_id()
-        exercice = ExerciceComptable.objects.filter(
-            pk=exercice_id, entreprise_id=entreprise_id
-        ).first() if exercice_id else None
+        exercice = self._resolve_exercice(exercice_id)
         resultat = service.compte_resultat(exercice=exercice, entreprise_id=entreprise_id)
         return Response(resultat)
 
@@ -359,7 +404,7 @@ class ValeurAnalytiqueViewSet(viewsets.ModelViewSet):
     search_fields = ["code", "libelle", "external_id"]
 
     def get_entreprise_id(self):
-        return str(getattr(self.request.user, "entreprise_id", "") or "")
+        return resolve_entreprise_id(self.request)
 
     def get_queryset(self):
         return ValeurAnalytique.objects.filter(
