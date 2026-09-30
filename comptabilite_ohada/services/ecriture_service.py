@@ -180,15 +180,15 @@ class EcritureService:
     @classmethod
     @transaction.atomic
     def creer_ecriture_vente(cls, compte_caisse_code, montant, libelle,
-                             compte_produit_code, user=None):
-        journal = cls.get_or_create_journal("VN", "Ventes", "VENTES")
-        compte_caisse = cls.get_compte(compte_caisse_code)
-        compte_produit = cls.get_compte(compte_produit_code)
+                             compte_produit_code, user=None, entreprise_id="", piece=None):
+        journal = cls.get_or_create_journal("VN", "Ventes", "VENTES", entreprise_id)
+        compte_caisse = cls.get_compte(compte_caisse_code, entreprise_id)
+        compte_produit = cls.get_compte(compte_produit_code, entreprise_id)
         ref = cls.generer_reference("VN")
         return cls.creer_ecriture(ref, date.today(), libelle, journal, [
             {"compte": compte_caisse, "debit": montant, "libelle": "Encaissement vente"},
             {"compte": compte_produit, "credit": montant, "libelle": libelle},
-        ], user=user)
+        ], user=user, piece=piece, entreprise_id=entreprise_id)
 
     @classmethod
     @transaction.atomic
@@ -235,39 +235,41 @@ class EcritureService:
     @classmethod
     @transaction.atomic
     def creer_ecriture_charge(cls, compte_caisse_code, montant, libelle,
-                              compte_charge_code, date_operation=None, user=None):
+                              compte_charge_code, date_operation=None, user=None,
+                              entreprise_id="", piece=None):
         if date_operation is None:
             date_operation = date.today()
-        journal = cls._journal_paiement(compte_caisse_code)
-        compte_caisse = cls.get_compte(compte_caisse_code)
-        cc = cls.get_compte(compte_charge_code) or cls.get_compte("658")
+        journal = cls._journal_paiement(compte_caisse_code, entreprise_id)
+        compte_caisse = cls.get_compte(compte_caisse_code, entreprise_id)
+        cc = cls.get_compte(compte_charge_code, entreprise_id) or cls.get_compte("658", entreprise_id)
         now = datetime.now()
         ref = cls.generer_reference("CH", now)
         return cls.creer_ecriture(ref, date_operation, libelle, journal, [
             {"compte": cc, "debit": montant, "libelle": libelle},
             {"compte": compte_caisse, "credit": montant, "libelle": f"Paiement {libelle}"},
-        ], piece=f"DEP-{date_operation.strftime('%Y%m%d')}", user=user)
+        ], piece=piece or f"DEP-{date_operation.strftime('%Y%m%d')}", user=user,
+           entreprise_id=entreprise_id)
 
     # ─── Trésorerie ───────────────────────────────────────────
 
     @classmethod
-    def _journal_paiement(cls, compte_caisse_code):
+    def _journal_paiement(cls, compte_caisse_code, entreprise_id=""):
         if compte_caisse_code and str(compte_caisse_code).startswith("52"):
-            return cls.get_or_create_journal("BQ", "Banque", "BANQUE")
-        return cls.get_or_create_journal("CS", "Caisse", "CAISSE")
+            return cls.get_or_create_journal("BQ", "Banque", "BANQUE", entreprise_id)
+        return cls.get_or_create_journal("CS", "Caisse", "CAISSE", entreprise_id)
 
     @classmethod
     @transaction.atomic
     def creer_ecriture_transfert(cls, compte_source_code, compte_dest_code,
-                                 montant, libelle, user=None):
-        journal = cls.get_or_create_journal("TR", "Transferts", "CAISSE")
+                                 montant, libelle, user=None, entreprise_id="", piece=None):
+        journal = cls.get_or_create_journal("TR", "Transferts", "CAISSE", entreprise_id)
         ref = cls.generer_reference("TRF")
         return cls.creer_ecriture(ref, date.today(), libelle, journal, [
-            {"compte": cls.get_compte(compte_dest_code), "debit": montant,
+            {"compte": cls.get_compte(compte_dest_code, entreprise_id), "debit": montant,
              "libelle": f"Transfert reçu"},
-            {"compte": cls.get_compte(compte_source_code), "credit": montant,
+            {"compte": cls.get_compte(compte_source_code, entreprise_id), "credit": montant,
              "libelle": f"Transfert émis"},
-        ], user=user)
+        ], user=user, piece=piece, entreprise_id=entreprise_id)
 
     @classmethod
     @transaction.atomic
