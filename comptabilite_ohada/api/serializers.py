@@ -170,6 +170,15 @@ class RegleEvenementComptableSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ["entreprise_id"]
 
+    def validate_code_regle(self, value):
+        from ..rules import moteur
+        if value not in moteur.codes_disponibles():
+            raise serializers.ValidationError(
+                "Règle inconnue. Règles disponibles : "
+                + ", ".join(moteur.codes_disponibles())
+            )
+        return value
+
 
 class EvenementMetierSerializer(serializers.ModelSerializer):
     class Meta:
