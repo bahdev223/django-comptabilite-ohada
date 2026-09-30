@@ -108,10 +108,12 @@ class EcritureService:
             )
         if exercice.cloture:
             raise ValidationError(f"L'exercice {exercice.code} est clôturé.")
-        if not (exercice.date_debut <= date_ecriture <= exercice.date_fin):
+        date_debut = parse_date(exercice.date_debut) if isinstance(exercice.date_debut, str) else exercice.date_debut
+        date_fin = parse_date(exercice.date_fin) if isinstance(exercice.date_fin, str) else exercice.date_fin
+        if not (date_debut <= date_ecriture <= date_fin):
             raise ValidationError(
                 f"La date {date_ecriture} est hors de l'exercice {exercice.code} "
-                f"({exercice.date_debut} → {exercice.date_fin})."
+                f"({date_debut} → {date_fin})."
             )
         if (exercice.entreprise_id or "") != (entreprise_id or ""):
             raise ValidationError("L'exercice n'appartient pas à la même entreprise que l'écriture.")
