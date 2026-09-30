@@ -1,5 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from rest_framework.authtoken.views import obtain_auth_token
 
 from .views import (
     CompteComptableViewSet, EcritureComptableViewSet,
@@ -7,9 +8,11 @@ from .views import (
     ConfigurationComptableViewSet, ImmobilisationViewSet,
     DimensionAnalytiqueViewSet, ValeurAnalytiqueViewSet,
     RegleEvenementComptableViewSet, EvenementMetierViewSet,
+    OrganisationComptableViewSet,
 )
 
 router = DefaultRouter()
+router.register(r"organisations", OrganisationComptableViewSet, basename="organisation")
 router.register(r"comptes", CompteComptableViewSet)
 router.register(r"ecritures", EcritureComptableViewSet)
 router.register(r"journaux", JournalComptableViewSet)
@@ -22,6 +25,7 @@ router.register(r"regles-evenements", RegleEvenementComptableViewSet)
 router.register(r"events", EvenementMetierViewSet)
 
 urlpatterns = [
+    path("api/v1/auth/token/", obtain_auth_token, name="api_token_auth"),
     # Contrat cible pour les intégrations externes.
     path("api/v1/", include(router.urls)),
     # Compatibilité avec les intégrations historiques du paquet.
