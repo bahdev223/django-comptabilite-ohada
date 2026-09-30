@@ -91,7 +91,10 @@ class CompteComptable(models.Model):
                 )
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        # Ne valide ici que les invariants structurels du paquet afin de
+        # rester compatible avec d'anciennes bases contenant des libellés
+        # de choix historiques.
+        self.clean()
         return super().save(*args, **kwargs)
 
     @property
