@@ -29,6 +29,7 @@
   {"code": "471", "libelle": "Débiteurs divers", "classe": 4, "nature": "ACTIF", "categorie": "bilan"},
   {"code": "48", "libelle": "Comptes de régularisation", "classe": 4, "nature": "MIXTE", "categorie": "bilan"},
   {"code": "521", "libelle": "Banques", "classe": 5, "nature": "ACTIF", "categorie": "bilan"},
+  {"code": "552", "libelle": "Monnaie électronique / Mobile Money", "classe": 5, "nature": "ACTIF", "categorie": "bilan"},
   {"code": "571", "libelle": "Caisse", "classe": 5, "nature": "ACTIF", "categorie": "bilan"},
   {"code": "581", "libelle": "Virements internes", "classe": 5, "nature": "MIXTE", "categorie": "bilan"},
   {"code": "601", "libelle": "Achats de marchandises", "classe": 6, "nature": "CHARGE", "categorie": "resultat"},
