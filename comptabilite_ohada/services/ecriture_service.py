@@ -3,6 +3,7 @@ from datetime import date, datetime
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from ..models import EcritureComptable, LigneEcritureComptable, JournalComptable
 from ..models import CompteComptable, ExerciceComptable
@@ -68,6 +69,14 @@ class EcritureService:
     def creer_ecriture(cls, reference, date_ecriture, libelle, journal, lignes,
                        exercice=None, piece=None, validee=True, user=None,
                        entreprise_id=None):
+        if isinstance(date_ecriture, datetime):
+            date_ecriture = date_ecriture.date()
+        elif isinstance(date_ecriture, str):
+            parsed_date = parse_date(date_ecriture)
+            if parsed_date is None:
+                raise ValidationError(f"Date d'écriture invalide : {date_ecriture}")
+            date_ecriture = parsed_date
+
         if entreprise_id is None:
             entreprise_id = (
                 getattr(exercice, "entreprise_id", None)
