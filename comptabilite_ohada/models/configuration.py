@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 class ConfigurationComptable(models.Model):
     """Configuration générale de la comptabilité."""
 
+    entreprise_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
     nom = models.CharField(_("Nom"), max_length=200, default="Mon Entreprise")
     devise = models.CharField(_("Devise"), max_length=10, default="FCFA")
 
@@ -44,8 +45,11 @@ class ConfigurationComptable(models.Model):
         return self.nom
 
     @classmethod
-    def get_config(cls):
-        obj, _ = cls.objects.get_or_create(pk=1)
+    def get_config(cls, entreprise_id=""):
+        obj, _ = cls.objects.get_or_create(
+            entreprise_id=entreprise_id or "",
+            defaults={"nom": "Mon Entreprise"},
+        )
         return obj
 
 
