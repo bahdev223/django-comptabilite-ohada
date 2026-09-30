@@ -48,8 +48,8 @@ class HTMLSmokeTest(TestCase):
             valeur_residuelle=Decimal("0"),
             duree_ans=1,
             compte_immobilisation=EcritureService.get_compte("245"),
-            compte_amortissement=EcritureService.get_compte("28"),
-            compte_charge=EcritureService.get_compte("68"),
+            compte_amortissement=EcritureService.get_compte("2845"),
+            compte_charge=EcritureService.get_compte("6813"),
         )
 
     def test_pages_principales_rendent_sans_erreur(self):
