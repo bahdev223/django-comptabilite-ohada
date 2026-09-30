@@ -117,9 +117,11 @@ class InitialisationService:
         mapping = {
             "caisse": "571",
             "banque": "521",
+            "mobile_money": "552",
             "stocks": "31",
             "clients": "411",
             "fournisseurs": "401",
+            "capital_social": "101",
         }
         total_debit = Decimal("0.00")
         total_credit = Decimal("0.00")
@@ -128,7 +130,7 @@ class InitialisationService:
         for field, compte_code in mapping.items():
             montant = getattr(solde_init, field, Decimal("0.00"))
             if montant > 0:
-                if field in ("fournisseurs",):
+                if field in ("fournisseurs", "capital_social"):
                     lignes.append({"compte": EcritureService.get_compte(compte_code, entreprise_id),
                                    "credit": montant})
                     total_credit += montant
