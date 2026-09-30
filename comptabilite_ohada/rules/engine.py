@@ -53,15 +53,14 @@ class MoteurRegles:
         self._regles.append(regle)
 
     def appliquer(self, type_operation: str, **contexte) -> List[EcritureRegle]:
-        """Applique toutes les règles compatibles."""
+        """Applique uniquement la règle explicitement demandée."""
         resultats = []
         for regle in self._regles:
-            try:
-                ecriture = regle.appliquer(**contexte)
-                if ecriture:
-                    resultats.append(ecriture)
-            except Exception:
+            if regle.code != type_operation:
                 continue
+            ecriture = regle.appliquer(**contexte)
+            if ecriture:
+                resultats.append(ecriture)
         return resultats
 
 
