@@ -35,7 +35,7 @@ class DashboardService:
         tresorerie = base.filter(
             Q(compte__code__startswith="57") |
             Q(compte__code__startswith="52") |
-            Q(compte__code__startswith="581"),
+            Q(compte__code__startswith="55"),
         ).aggregate(
             debit=Sum("debit"), credit=Sum("credit"),
         )
@@ -71,7 +71,7 @@ class DashboardService:
         ).filter(
             Q(compte__code__startswith="57") |
             Q(compte__code__startswith="52") |
-            Q(compte__code__startswith="581"),
+            Q(compte__code__startswith="55"),
         ).values("ecriture__date_ecriture").annotate(
             debit=Sum("debit"), credit=Sum("credit"),
         ).order_by("ecriture__date_ecriture")
