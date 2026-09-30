@@ -8,11 +8,18 @@ from ..models import ExerciceComptable
 from ..services.exercice_service import ExerciceService
 
 
+def _entreprise_id(request):
+    return str(getattr(request.user, "entreprise_id", "") or "")
+
+
 class ExerciceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     model = ExerciceComptable
     template_name = "comptabilite_ohada/exercice_list.html"
     context_object_name = "exercices"
     permission_required = "comptabilite_ohada.view_exercicecomptable"
+
+    def get_queryset(self):
+        return super().get_queryset().filter(entreprise_id=_entreprise_id(self.request))
 
 
 class ExerciceDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
@@ -21,14 +28,18 @@ class ExerciceDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
     context_object_name = "exercice"
     permission_required = "comptabilite_ohada.view_exercicecomptable"
 
+    def get_queryset(self):
+        return super().get_queryset().filter(entreprise_id=_entreprise_id(self.request))
+
 
 class ExerciceCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = ExerciceComptable
     template_name = "comptabilite_ohada/exercice_form.html"
-    fields = ["code", "date_debut", "date_fin", "entreprise_id"]
+    fields = ["code", "date_debut", "date_fin"]
     permission_required = "comptabilite_ohada.add_exercicecomptable"
 
     def form_valid(self, form):
+        form.instance.entreprise_id = _entreprise_id(self.request)
         messages.success(self.request, "Exercice créé avec succès.")
         return super().form_valid(form)
 
@@ -36,6 +47,9 @@ class ExerciceCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView
 class ExerciceCloturerView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = ExerciceComptable
     permission_required = "comptabilite_ohada.change_exercicecomptable"
+
+    def get_queryset(self):
+        return super().get_queryset().filter(entreprise_id=_entreprise_id(self.request))
 
     def post(self, request, *args, **kwargs):
         exercice = self.get_object()
@@ -50,6 +64,9 @@ class ExerciceCloturerView(LoginRequiredMixin, PermissionRequiredMixin, DetailVi
 class ExerciceRouvrirView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = ExerciceComptable
     permission_required = "comptabilite_ohada.change_exercicecomptable"
+
+    def get_queryset(self):
+        return super().get_queryset().filter(entreprise_id=_entreprise_id(self.request))
 
     def post(self, request, *args, **kwargs):
         exercice = self.get_object()
