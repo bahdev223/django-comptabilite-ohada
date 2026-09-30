@@ -1,4 +1,4 @@
-from django.views.generic import ListView, DetailView, TemplateView
+from django.views.generic import ListView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 
 from ..models import ReleveBancaire
@@ -10,6 +10,10 @@ class RapprochementListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
     context_object_name = "releves"
     permission_required = "comptabilite_ohada.view_relevebancaire"
 
+    def get_queryset(self):
+        entreprise_id = str(getattr(self.request.user, "entreprise_id", "") or "")
+        return super().get_queryset().filter(entreprise_id=entreprise_id)
+
 
 class RapprochementDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = ReleveBancaire
@@ -17,7 +21,11 @@ class RapprochementDetailView(LoginRequiredMixin, PermissionRequiredMixin, Detai
     context_object_name = "releve"
     permission_required = "comptabilite_ohada.view_relevebancaire"
 
+    def get_queryset(self):
+        entreprise_id = str(getattr(self.request.user, "entreprise_id", "") or "")
+        return super().get_queryset().filter(entreprise_id=entreprise_id)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["lignes"] = self.object.lignes.select_related("ecriture").all()
+        context["lignes"] = self.object.lignes.all()
         return context
