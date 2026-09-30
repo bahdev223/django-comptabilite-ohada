@@ -1,6 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from django_filters import rest_framework as filters
 from django.db.models import Sum, Q
 from django.utils import timezone
@@ -24,9 +25,10 @@ from .serializers import (
 
 
 class CompteComptableViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = CompteComptable.objects.all()
     serializer_class = CompteComptableSerializer
-    filterset_fields = ["code", "classe", "nature", "type_compte", "actif"]
+    filterset_fields = ["code", "nature", "type_compte", "categorie", "actif", "entreprise_id"]
     search_fields = ["code", "libelle"]
 
     @action(detail=True, methods=["get"])
@@ -42,8 +44,9 @@ class CompteComptableViewSet(viewsets.ModelViewSet):
 
 
 class EcritureComptableViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = EcritureComptable.objects.prefetch_related("lignes__compte").all()
-    filterset_fields = ["validee", "journal", "exercice", "type_operation"]
+    filterset_fields = ["validee", "journal", "exercice", "entreprise_id"]
     search_fields = ["reference", "libelle"]
 
     def get_serializer_class(self):
@@ -106,6 +109,7 @@ class EcritureComptableViewSet(viewsets.ModelViewSet):
 
 
 class JournalComptableViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = JournalComptable.objects.all()
     serializer_class = JournalComptableSerializer
     filterset_fields = ["code", "actif"]
@@ -124,10 +128,11 @@ class JournalComptableViewSet(viewsets.ModelViewSet):
 
 
 class ExerciceComptableViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = ExerciceComptable.objects.all()
     serializer_class = ExerciceComptableSerializer
-    filterset_fields = ["cloture", "societe"]
-    search_fields = ["code", "libelle"]
+    filterset_fields = ["cloture", "entreprise_id"]
+    search_fields = ["code"]
 
     @action(detail=True, methods=["post"])
     def cloturer(self, request, pk=None):
@@ -149,15 +154,17 @@ class ExerciceComptableViewSet(viewsets.ModelViewSet):
 
 
 class ConfigurationComptableViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = ConfigurationComptable.objects.all()
     serializer_class = ConfigurationComptableSerializer
 
 
 class ImmobilisationViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = Immobilisation.objects.prefetch_related("plan_amortissement").all()
     serializer_class = ImmobilisationSerializer
-    filterset_fields = ["statut", "mode_amortissement", "societe"]
-    search_fields = ["designation", "code"]
+    filterset_fields = ["statut", "type_immobilisation"]
+    search_fields = ["libelle", "code"]
 
     @action(detail=True, methods=["post"])
     def calculer_amortissement(self, request, pk=None):
