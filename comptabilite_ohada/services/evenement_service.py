@@ -125,7 +125,7 @@ class EvenementService:
                         "debit": ligne.debit,
                         "credit": ligne.credit,
                         "libelle": ligne.libelle or resultat.libelle,
-                        "dimensions": dimensions,
+                        "dimensions": ligne.dimensions or dimensions,
                     })
 
                 ecriture = EcritureService.creer_ecriture(
