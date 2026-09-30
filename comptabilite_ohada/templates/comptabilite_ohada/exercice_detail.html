@@ -2,7 +2,7 @@
 {% block title %}Exercice {{ exercice.code }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>{{ exercice.code }} - {{ exercice.libelle }}</h1>
+    <h1>Exercice {{ exercice.code }}</h1>
     <div>
         <a href="{% url 'comptabilite:exercice_list' %}" class="btn btn-outline-secondary">&larr; Retour</a>
         {% if not exercice.cloture %}
@@ -22,7 +22,8 @@
     <table class="table table-sm">
         <tr><th>P&eacute;riode</th><td>{{ exercice.date_debut|date:"d/m/Y" }} - {{ exercice.date_fin|date:"d/m/Y" }}</td></tr>
         <tr><th>Statut</th><td>{% if exercice.cloture %}<span class="badge bg-secondary">Cl&ocirc;tur&eacute;</span>{% else %}<span class="badge bg-success">Ouvert</span>{% endif %}</td></tr>
-        <tr><th>Soci&eacute;t&eacute;</th><td>{{ exercice.societe|default:"-" }}</td></tr>
+        <tr><th>Entreprise</th><td>{{ exercice.entreprise_id|default:"Mode mono-entreprise" }}</td></tr>
+        <tr><th>Date de cl&ocirc;ture</th><td>{{ exercice.date_cloture|date:"d/m/Y"|default:"-" }}</td></tr>
     </table>
 </div>
 {% endblock %}
