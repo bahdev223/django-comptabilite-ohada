@@ -14,6 +14,7 @@ from ..models import (
     Immobilisation, PlanAmortissement,
     DimensionAnalytique, ValeurAnalytique,
     EvenementMetier, RegleEvenementComptable,
+    OrganisationComptable,
 )
 from ..services.ecriture_service import EcritureService
 from ..services.journal_service import BalanceService, GrandLivreService
@@ -29,6 +30,7 @@ from .serializers import (
     DimensionAnalytiqueSerializer, ValeurAnalytiqueSerializer,
     RegleEvenementComptableSerializer, EvenementMetierSerializer,
     EvenementIngestSerializer,
+    OrganisationComptableSerializer,
 )
 
 
@@ -46,6 +48,25 @@ class EntrepriseScopedViewSetMixin:
 
     def perform_update(self, serializer):
         serializer.save(entreprise_id=self.get_entreprise_id())
+
+
+class OrganisationComptableViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = OrganisationComptableSerializer
+    search_fields = ["code", "nom"]
+
+    def get_queryset(self):
+        user = self.request.user
+        if getattr(user, "is_superuser", False):
+            return OrganisationComptable.objects.filter(actif=True)
+        direct = str(getattr(user, "entreprise_id", "") or "")
+        if direct:
+            return OrganisationComptable.objects.filter(code=direct, actif=True)
+        return OrganisationComptable.objects.filter(
+            actif=True,
+            acces_utilisateurs__user=user,
+            acces_utilisateurs__actif=True,
+        ).distinct()
 
 
 class CompteComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
