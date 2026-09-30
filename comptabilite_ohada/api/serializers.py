@@ -85,6 +85,10 @@ class EcritureCreateSerializer(serializers.ModelSerializer):
         lignes = validated_data.pop("lignes")
         request = self.context.get("request")
         user = getattr(request, "user", None)
+        entreprise_id = validated_data.pop(
+            "entreprise_id",
+            str(getattr(user, "entreprise_id", "") or ""),
+        )
         return EcritureService.creer_ecriture(
             reference=validated_data["reference"],
             date_ecriture=validated_data["date_ecriture"],
@@ -95,7 +99,7 @@ class EcritureCreateSerializer(serializers.ModelSerializer):
             piece=validated_data.get("piece"),
             validee=False,
             user=user,
-            entreprise_id=str(getattr(user, "entreprise_id", "") or ""),
+            entreprise_id=entreprise_id,
             source_system=validated_data.get("source_system", ""),
             source_type=validated_data.get("source_type", ""),
             source_id=validated_data.get("source_id", ""),
@@ -128,12 +132,14 @@ class ExerciceComptableSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExerciceComptable
         fields = "__all__"
+        read_only_fields = ["entreprise_id", "cloture", "date_cloture", "created_at"]
 
 
 class ConfigurationComptableSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConfigurationComptable
         fields = "__all__"
+        read_only_fields = ["entreprise_id", "created_at", "updated_at"]
 
 
 class LigneReleveBancaireSerializer(serializers.ModelSerializer):
@@ -149,7 +155,7 @@ class ReleveBancaireSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReleveBancaire
         fields = "__all__"
-        read_only_fields = ["entreprise_id"]
+        read_only_fields = ["entreprise_id", "statut", "created_at"]
 
 
 class PlanAmortissementSerializer(serializers.ModelSerializer):
@@ -164,6 +170,7 @@ class ImmobilisationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Immobilisation
         fields = "__all__"
+        read_only_fields = ["entreprise_id", "created_at", "updated_at"]
 
 
 
