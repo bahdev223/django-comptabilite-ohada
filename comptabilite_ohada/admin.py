@@ -78,7 +78,7 @@ class EvenementMetierAdmin(admin.ModelAdmin):
         "entreprise_id", "created_at",
     )
     list_filter = ("statut", "type_evenement", "source_system", "entreprise_id")
-    search_fields = ("idempotency_key", "source_id", "source_reference")
+    search_fields = ("idempotency_key", "source_id", "source_system")
 
 
 @admin.register(RegleEvenementComptable)
