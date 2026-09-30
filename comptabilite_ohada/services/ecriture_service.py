@@ -16,44 +16,44 @@ class EcritureService:
     # ─── Helpers ──────────────────────────────────────────────
 
     @classmethod
-    def get_exercice(cls, date_operation=None):
+    def get_exercice(cls, date_operation=None, entreprise_id=""):
         if date_operation is None:
             date_operation = date.today()
-        exercice = ExerciceComptable.objects.filter(
+        return ExerciceComptable.objects.filter(
+            entreprise_id=entreprise_id or "",
             date_debut__lte=date_operation,
             date_fin__gte=date_operation,
             cloture=False,
         ).first()
-        if not exercice:
-            exercice = ExerciceComptable.objects.filter(cloture=False).first()
-        return exercice
 
     @classmethod
-    def get_or_create_journal(cls, code, libelle, type_journal):
+    def get_or_create_journal(cls, code, libelle, type_journal, entreprise_id=""):
         journal, _ = JournalComptable.objects.get_or_create(
+            entreprise_id=entreprise_id or "",
             code=code,
             defaults={"libelle": libelle, "type_journal": type_journal, "actif": True},
         )
         return journal
 
     @classmethod
-    def get_compte(cls, code_or_id):
+    def get_compte(cls, code_or_id, entreprise_id=""):
         if code_or_id is None:
             return None
+        scope = {"entreprise_id": entreprise_id or "", "actif": True}
         if isinstance(code_or_id, int):
-            return CompteComptable.objects.filter(id=code_or_id, actif=True).first()
-        compte = CompteComptable.objects.filter(code=str(code_or_id), actif=True).first()
+            return CompteComptable.objects.filter(id=code_or_id, **scope).first()
+        compte = CompteComptable.objects.filter(code=str(code_or_id), **scope).first()
         if compte:
             return compte
         if isinstance(code_or_id, str) and code_or_id.isdigit():
-            return CompteComptable.objects.filter(id=int(code_or_id), actif=True).first()
+            return CompteComptable.objects.filter(id=int(code_or_id), **scope).first()
         return None
 
     @classmethod
-    def get_compte_par_type_caisse(cls, type_caisse):
+    def get_compte_par_type_caisse(cls, type_caisse, entreprise_id=""):
         mapping = {"ESPECES": "571", "BANQUE": "521", "MOBILE_MONEY": "581"}
         code = mapping.get(type_caisse, "571")
-        return cls.get_compte(code)
+        return cls.get_compte(code, entreprise_id=entreprise_id)
 
     @classmethod
     def generer_reference(cls, prefix, dt=None, seq=None):
@@ -66,9 +66,16 @@ class EcritureService:
     @classmethod
     @transaction.atomic
     def creer_ecriture(cls, reference, date_ecriture, libelle, journal, lignes,
-                       exercice=None, piece=None, validee=True, user=None):
+                       exercice=None, piece=None, validee=True, user=None,
+                       entreprise_id=None):
+        if entreprise_id is None:
+            entreprise_id = (
+                getattr(exercice, "entreprise_id", None)
+                or getattr(journal, "entreprise_id", "")
+                or ""
+            )
         if exercice is None:
-            exercice = cls.get_exercice(date_ecriture)
+            exercice = cls.get_exercice(date_ecriture, entreprise_id=entreprise_id)
         # get_exercice rend None quand aucun exercice ouvert ne couvre la
         # date. L'ecriture partait alors avec exercice=None et l'echec
         # remontait en IntegrityError depuis la base, apres qu'une
@@ -80,6 +87,17 @@ class EcritureService:
                 f"{date_ecriture}. Ouvrez un exercice avant d'enregistrer "
                 "des ecritures."
             )
+        if exercice.cloture:
+            raise ValidationError(f"L'exercice {exercice.code} est clôturé.")
+        if not (exercice.date_debut <= date_ecriture <= exercice.date_fin):
+            raise ValidationError(
+                f"La date {date_ecriture} est hors de l'exercice {exercice.code} "
+                f"({exercice.date_debut} → {exercice.date_fin})."
+            )
+        if (exercice.entreprise_id or "") != (entreprise_id or ""):
+            raise ValidationError("L'exercice n'appartient pas à la même entreprise que l'écriture.")
+        if (journal.entreprise_id or "") != (entreprise_id or ""):
+            raise ValidationError("Le journal n'appartient pas à la même entreprise que l'écriture.")
 
         # Une ecriture doit etre equilibree : c'est la regle fondatrice de
         # la partie double. Elle etait exposee par est_equilibree mais
@@ -105,11 +123,16 @@ class EcritureService:
         # la contrainte NOT NULL, bien apres le point ou l'on aurait pu
         # expliquer le probleme. On nomme le compte manquant.
         for position, ligne in enumerate(lignes, start=1):
-            if ligne.get("compte") is None:
+            compte = ligne.get("compte")
+            if compte is None:
                 raise ValidationError(
                     f"Ligne {position} de l'ecriture « {libelle} » : compte "
                     "comptable introuvable. Verifiez que le code existe et "
                     "qu'il est actif au plan comptable."
+                )
+            if (compte.entreprise_id or "") != (entreprise_id or ""):
+                raise ValidationError(
+                    f"Ligne {position} : le compte {compte.code} appartient à une autre entreprise."
                 )
 
         ecriture = EcritureComptable.objects.create(
@@ -121,6 +144,7 @@ class EcritureService:
             exercice=exercice,
             validee=validee,
             created_by=user.username if hasattr(user, "username") and user else str(user or ""),
+            entreprise_id=entreprise_id or "",
         )
 
         for ligne in lignes:
