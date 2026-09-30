@@ -1,9 +1,9 @@
 import json
 from decimal import Decimal
-from pathlib import Path
 from importlib.resources import files as pkg_files
 
 from django.db import transaction
+from datetime import date
 
 from ..models import CompteComptable, ConfigurationComptable, SoldeInitialComptable
 from ..models import JournalComptable, ExerciceComptable
@@ -16,9 +16,8 @@ class InitialisationService:
     @staticmethod
     def charger_plan_comptable(force=False, entreprise_id=""):
         entreprise_id = entreprise_id or ""
-        if force:
-            CompteComptable.objects.filter(entreprise_id=entreprise_id).delete()
-
+        # "force" synchronise les métadonnées du référentiel mais ne détruit
+        # jamais des comptes pouvant porter un historique comptable.
         try:
             content = pkg_files("comptabilite_ohada.data").joinpath("plan_comptable.json").read_text(encoding="utf-8")
         except (ImportError, FileNotFoundError):
@@ -45,9 +44,18 @@ class InitialisationService:
                 "categorie": item.get("categorie", "bilan"),
                 "actif": item.get("actif", True),
             }
-            compte, created = CompteComptable.objects.get_or_create(
-                entreprise_id=entreprise_id, code=code, defaults=defaults,
-            )
+            if force:
+                compte, created = CompteComptable.objects.update_or_create(
+                    entreprise_id=entreprise_id,
+                    code=code,
+                    defaults=defaults,
+                )
+            else:
+                compte, created = CompteComptable.objects.get_or_create(
+                    entreprise_id=entreprise_id,
+                    code=code,
+                    defaults=defaults,
+                )
             if created:
                 comptes_crees += 1
             parents[code] = compte
@@ -57,8 +65,9 @@ class InitialisationService:
             parent_code = item.get("parent_code")
             if parent_code and parent_code in parents:
                 compte = CompteComptable.objects.get(entreprise_id=entreprise_id, code=code)
-                compte.parent = parents[parent_code]
-                compte.save(update_fields=["parent"])
+                if compte.parent_id != parents[parent_code].pk:
+                    compte.parent = parents[parent_code]
+                    compte.save(update_fields=["parent"])
 
         config = ConfigurationComptable.get_config(entreprise_id)
         config.est_initialise = True
@@ -138,7 +147,6 @@ class InitialisationService:
                                "debit": -ecart})
 
         config = ConfigurationComptable.get_config(entreprise_id)
-        from datetime import date
         EcritureService.creer_ecriture(
             reference=f"SI-{date.today().strftime('%Y%m%d')}",
             date_ecriture=date.today(),
@@ -151,6 +159,3 @@ class InitialisationService:
         )
 
         return solde_init
-
-
-from datetime import date
