@@ -96,6 +96,10 @@ class CompteComptable(models.Model):
 
     @property
     def solde_normal(self):
+        # Le plan peut imposer un sens précis pour les comptes de sens
+        # contraire (amortissements, dépréciations, résultat déficitaire...).
+        if self.sens and self.sens != SensCompte.MIXTE:
+            return self.sens
         if self.nature in (NatureCompte.ACTIF, NatureCompte.CHARGE):
             return SensCompte.DEBIT
         if self.nature in (NatureCompte.PASSIF, NatureCompte.PRODUIT):
