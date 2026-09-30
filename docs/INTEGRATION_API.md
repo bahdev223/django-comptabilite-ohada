@@ -1,5 +1,35 @@
 # Guide d'intégration API
 
+## Authentification
+
+En mode standalone :
+
+```text
+POST /api/v1/auth/token/
+```
+
+avec `username` et `password`.
+
+Puis :
+
+```http
+Authorization: Token <token>
+```
+
+## Sélection de l'entreprise
+
+```text
+GET /api/v1/organisations/
+```
+
+Si l'utilisateur possède plusieurs entreprises, envoyer ensuite :
+
+```http
+X-Enterprise-ID: ENT-A
+```
+
+Le serveur vérifie que l'utilisateur possède réellement un accès à cette entreprise.
+
 ## Principe
 
 Les ERP externes devraient préférer l'ingestion d'événements plutôt que construire directement les écritures.
@@ -40,6 +70,8 @@ POST /api/v1/events/
 ## Idempotence
 
 Le même `idempotency_key` pour une entreprise retourne l'événement existant et ne crée pas une seconde écriture.
+
+Un événement dont le traitement comptable échoue reste enregistré avec le statut `ERREUR` pour audit. L'écriture partielle est annulée par transaction.
 
 ## Mapping
 
