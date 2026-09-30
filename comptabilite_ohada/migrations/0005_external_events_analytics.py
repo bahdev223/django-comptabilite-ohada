@@ -96,6 +96,7 @@ class Migration(migrations.Migration):
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
                 ("pourcentage", models.DecimalField(decimal_places=2, default=Decimal("100.00"), max_digits=5)),
+                ("montant", models.DecimalField(blank=True, decimal_places=2, max_digits=15, null=True)),
                 ("metadata", models.JSONField(blank=True, default=dict)),
                 ("dimension", models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name="affectations", to="comptabilite_ohada.dimensionanalytique")),
                 ("ligne", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="affectations_analytiques", to="comptabilite_ohada.ligneecriturecomptable")),
@@ -104,7 +105,7 @@ class Migration(migrations.Migration):
             options={
                 "verbose_name": "Affectation analytique",
                 "verbose_name_plural": "Affectations analytiques",
-                "unique_together": {("ligne", "dimension")},
+                "unique_together": {("ligne", "dimension", "valeur")},
             },
         ),
         migrations.CreateModel(
