@@ -9,6 +9,7 @@ from .views import (
     DimensionAnalytiqueViewSet, ValeurAnalytiqueViewSet,
     RegleEvenementComptableViewSet, EvenementMetierViewSet,
     OrganisationComptableViewSet,
+    ReleveBancaireViewSet,
     health_view,
 )
 
@@ -20,6 +21,7 @@ router.register(r"journaux", JournalComptableViewSet)
 router.register(r"exercices", ExerciceComptableViewSet)
 router.register(r"configurations", ConfigurationComptableViewSet)
 router.register(r"immobilisations", ImmobilisationViewSet)
+router.register(r"releves-bancaires", ReleveBancaireViewSet)
 router.register(r"dimensions-analytiques", DimensionAnalytiqueViewSet)
 router.register(r"valeurs-analytiques", ValeurAnalytiqueViewSet, basename="valeur-analytique")
 router.register(r"regles-evenements", RegleEvenementComptableViewSet)
