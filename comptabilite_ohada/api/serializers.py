@@ -10,6 +10,8 @@ from ..models import (
     DimensionAnalytique, ValeurAnalytique, AffectationAnalytique,
     EvenementMetier, RegleEvenementComptable,
     OrganisationComptable,
+    ReleveBancaire,
+    LigneReleveBancaire,
 )
 
 
@@ -132,6 +134,22 @@ class ConfigurationComptableSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConfigurationComptable
         fields = "__all__"
+
+
+class LigneReleveBancaireSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LigneReleveBancaire
+        fields = "__all__"
+        read_only_fields = ["releve", "pointe"]
+
+
+class ReleveBancaireSerializer(serializers.ModelSerializer):
+    lignes = LigneReleveBancaireSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ReleveBancaire
+        fields = "__all__"
+        read_only_fields = ["entreprise_id"]
 
 
 class PlanAmortissementSerializer(serializers.ModelSerializer):
