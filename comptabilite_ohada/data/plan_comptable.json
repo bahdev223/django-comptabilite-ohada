@@ -210,7 +210,17 @@
       "sens": "CREDIT",
       "categorie": "bilan",
       "type_compte": "groupe",
-      "est_mouvement": true
+      "est_mouvement": false
+    },
+    {
+      "code": "2845",
+      "libelle": "Amortissements du matériel de transport",
+      "nature": "ACTIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "28"
     },
     {
       "code": "29",
@@ -512,6 +522,16 @@
       "categorie": "bilan",
       "type_compte": "groupe",
       "est_mouvement": true
+    },
+    {
+      "code": "4812",
+      "libelle": "Fournisseurs d'investissements, immobilisations corporelles",
+      "nature": "PASSIF",
+      "sens": "CREDIT",
+      "categorie": "bilan",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "48"
     },
     {
       "code": "49",
@@ -870,7 +890,17 @@
       "sens": "DEBIT",
       "categorie": "resultat",
       "type_compte": "groupe",
-      "est_mouvement": true
+      "est_mouvement": false
+    },
+    {
+      "code": "6813",
+      "libelle": "Dotations aux amortissements des immobilisations corporelles",
+      "nature": "CHARGE",
+      "sens": "DEBIT",
+      "categorie": "resultat",
+      "type_compte": "compte",
+      "est_mouvement": true,
+      "parent_code": "68"
     },
     {
       "code": "69",
