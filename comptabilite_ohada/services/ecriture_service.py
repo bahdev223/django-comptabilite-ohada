@@ -29,11 +29,17 @@ class EcritureService:
 
     @classmethod
     def get_or_create_journal(cls, code, libelle, type_journal, entreprise_id=""):
-        journal, _ = JournalComptable.objects.get_or_create(
+        journal, created = JournalComptable.objects.get_or_create(
             entreprise_id=entreprise_id or "",
             code=code,
             defaults={"libelle": libelle, "type_journal": type_journal, "actif": True},
         )
+        if not created and (
+            journal.type_journal != type_journal or not journal.actif
+        ):
+            journal.type_journal = type_journal
+            journal.actif = True
+            journal.save(update_fields=["type_journal", "actif"])
         return journal
 
     @classmethod
@@ -166,6 +172,10 @@ class EcritureService:
             if (compte.entreprise_id or "") != (entreprise_id or ""):
                 raise ValidationError(
                     f"Ligne {position} : le compte {compte.code} appartient à une autre entreprise."
+                )
+            if not compte.est_mouvement:
+                raise ValidationError(
+                    f"Ligne {position} : le compte {compte.code} est un compte de regroupement non mouvementable."
                 )
 
         ecriture = EcritureComptable.objects.create(
