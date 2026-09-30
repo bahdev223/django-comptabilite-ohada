@@ -41,6 +41,10 @@ def connect():
                 user=user,
                 entreprise_id=entreprise_id,
                 piece=piece,
+                source_system="django-comptes",
+                source_type="mouvement",
+                source_id=source_ref,
+                idempotency_key=f"django-comptes:mouvement:{source_ref}",
             )
         elif nature == "DECAISSEMENT":
             EcritureService.creer_ecriture_charge(
@@ -51,6 +55,10 @@ def connect():
                 user=user,
                 entreprise_id=entreprise_id,
                 piece=piece,
+                source_system="django-comptes",
+                source_type="mouvement",
+                source_id=source_ref,
+                idempotency_key=f"django-comptes:mouvement:{source_ref}",
             )
 
     @receiver(transfert_effectue)
@@ -69,6 +77,10 @@ def connect():
             user=user,
             entreprise_id=entreprise_id,
             piece=f"DJANGO-COMPTES:{source_ref}",
+            source_system="django-comptes",
+            source_type="transfert",
+            source_id=source_ref,
+            idempotency_key=f"django-comptes:transfert:{source_ref}",
         )
 
     from comptes.signals.mouvement import mouvement_annule
@@ -81,9 +93,16 @@ def connect():
         source_ref = str(getattr(instance, "reference", "") or getattr(instance, "pk", ""))
         original = EcritureComptable.objects.filter(
             entreprise_id=entreprise_id,
-            piece=f"DJANGO-COMPTES:{source_ref}",
+            source_system="django-comptes",
+            source_id=source_ref,
             validee=True,
         ).order_by("-created_at").first()
+        if original is None:
+            original = EcritureComptable.objects.filter(
+                entreprise_id=entreprise_id,
+                piece=f"DJANGO-COMPTES:{source_ref}",
+                validee=True,
+            ).order_by("-created_at").first()
         if original is None:
             return
         ValidationService.annuler_ecriture(
