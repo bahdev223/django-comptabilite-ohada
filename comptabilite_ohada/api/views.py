@@ -183,17 +183,17 @@ class ExerciceComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewS
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ConfigurationComptableViewSet(viewsets.ModelViewSet):
+class ConfigurationComptableViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = ConfigurationComptable.objects.all()
     serializer_class = ConfigurationComptableSerializer
 
 
-class ImmobilisationViewSet(viewsets.ModelViewSet):
+class ImmobilisationViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Immobilisation.objects.prefetch_related("plan_amortissement").all()
     serializer_class = ImmobilisationSerializer
-    filterset_fields = ["statut", "type_immobilisation"]
+    filterset_fields = ["statut", "type_immobilisation", "entreprise_id"]
     search_fields = ["libelle", "code"]
 
     @action(detail=True, methods=["post"])
