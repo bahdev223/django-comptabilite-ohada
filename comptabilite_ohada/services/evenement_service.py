@@ -1,5 +1,10 @@
+import json
+from decimal import Decimal
+
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from ..models import EvenementMetier, RegleEvenementComptable
 from ..rules import moteur
@@ -21,6 +26,23 @@ JOURNAUX_PAR_CODE = {
 
 class EvenementService:
     """Inbox idempotente transformant un événement métier en écriture comptable."""
+
+    @staticmethod
+    def _payload_stockable(payload):
+        """Convertit dates/Decimal vers une représentation JSON stable pour l'audit."""
+        return json.loads(json.dumps(payload or {}, cls=DjangoJSONEncoder))
+
+    @staticmethod
+    def _contexte_regle(payload):
+        """Normalise les types courants reçus depuis une API JSON."""
+        contexte = dict(payload or {})
+        if isinstance(contexte.get("date"), str):
+            parsed = parse_date(contexte["date"])
+            if parsed is not None:
+                contexte["date"] = parsed
+        if isinstance(contexte.get("montant"), str):
+            contexte["montant"] = Decimal(contexte["montant"])
+        return contexte
 
     @staticmethod
     def _regle_pour(entreprise_id, type_evenement):
@@ -60,7 +82,7 @@ class EvenementService:
                 "source_system": source_system,
                 "source_type": source_type or "",
                 "source_id": str(source_id or ""),
-                "payload": payload or {},
+                "payload": cls._payload_stockable(payload),
             },
         )
         if not created:
@@ -74,7 +96,7 @@ class EvenementService:
             return evenement, True
 
         try:
-            contexte = dict(payload or {})
+            contexte = cls._contexte_regle(payload)
             contexte.update(regle_mapping.configuration or {})
             resultats = moteur.appliquer(regle_mapping.code_regle, **contexte)
             if not resultats:
