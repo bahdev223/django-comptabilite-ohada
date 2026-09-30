@@ -381,7 +381,8 @@ class EcritureService:
     @transaction.atomic
     def creer_ecriture_amortissement(cls, plan, user=None):
         immobilisation = plan.immobilisation
-        journal = cls.get_or_create_journal("OD", "Opérations Diverses", "OD")
+        entreprise_id = immobilisation.entreprise_id or ""
+        journal = cls.get_or_create_journal("OD", "Opérations Diverses", "OD", entreprise_id)
         ref = f"AMORT-{immobilisation.code}-{plan.periode.strftime('%Y%m')}"
         libelle = f"Amortissement {immobilisation.libelle} - {plan.periode.strftime('%m/%Y')}"
         ecriture = cls.creer_ecriture(ref, plan.periode, libelle, journal, [
@@ -389,7 +390,8 @@ class EcritureService:
              "libelle": f"Dotation {immobilisation.libelle}"},
             {"compte": immobilisation.compte_amortissement, "credit": plan.montant,
              "libelle": f"Amortissement {immobilisation.libelle}"},
-        ], exercice=cls.get_exercice(plan.periode), user=user)
+        ], exercice=cls.get_exercice(plan.periode, entreprise_id), user=user,
+           entreprise_id=entreprise_id)
         plan.ecriture_generee = True
         plan.ecriture_reference = ref
         plan.save(update_fields=["ecriture_generee", "ecriture_reference"])
@@ -411,23 +413,24 @@ class EcritureService:
     @classmethod
     @transaction.atomic
     def creer_ecriture_cloture_exercice(cls, exercice, resultat, user=None):
-        journal = cls.get_or_create_journal("CL", "Clôture", "OD")
+        entreprise_id = exercice.entreprise_id or ""
+        journal = cls.get_or_create_journal("CL", "Clôture", "OD", entreprise_id)
         ref = f"RES-{exercice.code}"
         libelle = f"Affectation résultat exercice {exercice.code}"
         if resultat >= 0:
             lignes = [
-                {"compte": cls.get_compte("129"), "debit": resultat,
+                {"compte": cls.get_compte("129", entreprise_id), "debit": resultat,
                  "libelle": f"Bénéfice {exercice.code}"},
-                {"compte": cls.get_compte("101"), "credit": resultat,
+                {"compte": cls.get_compte("101", entreprise_id), "credit": resultat,
                  "libelle": f"Capital - report bénéfice {exercice.code}"},
             ]
         else:
             r = abs(resultat)
             lignes = [
-                {"compte": cls.get_compte("101"), "debit": r,
+                {"compte": cls.get_compte("101", entreprise_id), "debit": r,
                  "libelle": f"Imputation perte {exercice.code}"},
-                {"compte": cls.get_compte("129"), "credit": r,
+                {"compte": cls.get_compte("129", entreprise_id), "credit": r,
                  "libelle": f"Perte {exercice.code}"},
             ]
         return cls.creer_ecriture(ref, exercice.date_fin, libelle, journal, lignes,
-                                  exercice=exercice, user=user)
+                                  exercice=exercice, user=user, entreprise_id=entreprise_id)
