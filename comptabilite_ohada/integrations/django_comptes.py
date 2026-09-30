@@ -25,7 +25,9 @@ def connect():
         compte = instance.compte
         compte_code = compte.compte_comptable_code or "571"
 
-        if nature in ("ENCAISSEMENT", "TRANSFERT"):
+        # Les transferts ont leur signal dédié ci-dessous. Les traiter ici
+        # créerait une seconde écriture et les classerait à tort en vente.
+        if nature == "ENCAISSEMENT":
             EcritureService.creer_ecriture_vente(
                 compte_caisse_code=compte_code,
                 montant=montant,
