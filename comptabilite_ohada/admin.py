@@ -48,6 +48,16 @@ class EcritureComptableAdmin(admin.ModelAdmin):
     list_filter = ("journal", "exercice", "validee")
     search_fields = ("reference", "libelle")
 
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.validee:
+            return False
+        return super().has_delete_permission(request, obj)
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions.pop("delete_selected", None)
+        return actions
+
 
 admin.site.register(LigneEcritureComptable)
 admin.site.register(ConfigurationComptable)
