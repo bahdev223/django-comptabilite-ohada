@@ -8,7 +8,7 @@ WORKDIR /app
 COPY . /app
 
 RUN python -m pip install --upgrade pip \
-    && pip install --no-cache-dir -e ".[rest]" gunicorn
+    && pip install --no-cache-dir -e ".[rest,server]"
 
 ENV DJANGO_SETTINGS_MODULE=standalone.settings
 
