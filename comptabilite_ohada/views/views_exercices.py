@@ -1,4 +1,4 @@
-from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from django.views.generic import ListView, DetailView, CreateView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse_lazy
 from django.contrib import messages
@@ -25,7 +25,7 @@ class ExerciceDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
 class ExerciceCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = ExerciceComptable
     template_name = "comptabilite_ohada/exercice_form.html"
-    fields = ["code", "libelle", "date_debut", "date_fin", "societe"]
+    fields = ["code", "date_debut", "date_fin", "entreprise_id"]
     permission_required = "comptabilite_ohada.add_exercicecomptable"
 
     def form_valid(self, form):
