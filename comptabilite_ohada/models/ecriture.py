@@ -22,6 +22,18 @@ class EcritureComptable(models.Model):
     date_validation = models.DateTimeField(_("Date validation"), null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.CharField(_("Créé par"), max_length=100, blank=True, null=True)
+    validated_by = models.CharField(_("Validé par"), max_length=100, blank=True, null=True)
+
+    source_system = models.CharField(max_length=100, blank=True, default="", db_index=True)
+    source_type = models.CharField(max_length=100, blank=True, default="")
+    source_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
+    source_reference = models.CharField(max_length=255, blank=True, default="")
+    idempotency_key = models.CharField(max_length=255, blank=True, null=True, db_index=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    reversal_of = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="reversals", verbose_name=_("Contre-passation de"),
+    )
 
     # Preparation multi-entreprises. Vide tant que l'application ne sert
     # qu'une entreprise ; le projet hote y place l'identifiant de son
@@ -34,6 +46,13 @@ class EcritureComptable(models.Model):
         # Unicite par entreprise plutot que globale : deux entreprises
         # doivent pouvoir employer le meme reference.
         unique_together = [["entreprise_id", "reference"]]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["entreprise_id", "idempotency_key"],
+                condition=models.Q(idempotency_key__isnull=False),
+                name="uniq_ecriture_idempotente_par_entreprise",
+            )
+        ]
         verbose_name = _("Écriture comptable")
         verbose_name_plural = _("Écritures comptables")
         ordering = ["-date_ecriture", "-created_at"]
