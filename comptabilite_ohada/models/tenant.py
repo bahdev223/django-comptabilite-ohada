@@ -1,3 +1,7 @@
+import hashlib
+import hmac
+import secrets
+
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -52,3 +56,54 @@ class AccesEntrepriseComptable(models.Model):
 
     def __str__(self):
         return f"{self.user} -> {self.entreprise.code} ({self.role})"
+
+
+
+class ApplicationClienteComptable(models.Model):
+    """Client machine-to-machine autorisé à appeler l'API comptable."""
+
+    entreprise = models.ForeignKey(
+        OrganisationComptable,
+        on_delete=models.CASCADE,
+        related_name="applications_clientes",
+    )
+    nom = models.CharField(max_length=150)
+    prefixe = models.CharField(max_length=16, unique=True, db_index=True)
+    secret_hash = models.CharField(max_length=64)
+    scopes = models.JSONField(default=list, blank=True)
+    actif = models.BooleanField(default=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [["entreprise", "nom"]]
+        ordering = ["entreprise__code", "nom"]
+        verbose_name = _("Application cliente comptable")
+        verbose_name_plural = _("Applications clientes comptables")
+
+    def __str__(self):
+        return f"{self.entreprise.code} - {self.nom}"
+
+    @staticmethod
+    def _hash(secret):
+        return hashlib.sha256(secret.encode("utf-8")).hexdigest()
+
+    def verifier_secret(self, secret):
+        return hmac.compare_digest(
+            self.secret_hash,
+            self._hash(secret),
+        )
+
+    @classmethod
+    def generer_cle(cls, entreprise, nom, scopes=None):
+        # Le secret brut n'est retourné qu'à la création et n'est jamais stocké.
+        secret = "acct_" + secrets.token_urlsafe(32)
+        prefixe = secret[:16]
+        objet = cls.objects.create(
+            entreprise=entreprise,
+            nom=nom,
+            prefixe=prefixe,
+            secret_hash=cls._hash(secret),
+            scopes=list(scopes or []),
+        )
+        return objet, secret
