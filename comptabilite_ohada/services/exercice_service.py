@@ -93,6 +93,30 @@ class ValidationService:
     def valider_ecriture(ecriture, user=None):
         if ecriture.validee:
             raise ValueError(f"Écriture {ecriture.reference} déjà validée")
+        if ecriture.exercice.cloture:
+            raise ValueError("Une écriture d'un exercice clôturé ne peut pas être validée.")
+        if not (
+            ecriture.exercice.date_debut
+            <= ecriture.date_ecriture
+            <= ecriture.exercice.date_fin
+        ):
+            raise ValueError("La date de l'écriture est hors de la période de l'exercice.")
+        if (
+            (ecriture.journal.entreprise_id or "") != (ecriture.entreprise_id or "")
+            or (ecriture.exercice.entreprise_id or "") != (ecriture.entreprise_id or "")
+        ):
+            raise ValueError("Journal, exercice et écriture doivent appartenir à la même entreprise.")
+
+        lignes = list(ecriture.lignes.select_related("compte"))
+        if len(lignes) < 2:
+            raise ValueError("Une écriture doit contenir au moins deux lignes.")
+        for position, ligne in enumerate(lignes, start=1):
+            if (ligne.compte.entreprise_id or "") != (ecriture.entreprise_id or ""):
+                raise ValueError(f"Ligne {position}: compte d'une autre entreprise.")
+            if not ligne.compte.est_mouvement:
+                raise ValueError(f"Ligne {position}: compte non mouvementable.")
+        if ecriture.total_debit == 0:
+            raise ValueError("Une écriture sans montant ne peut pas être validée.")
         if not ecriture.est_equilibree:
             raise ValueError(f"Écriture {ecriture.reference} déséquilibrée "
                              f"(Débit: {ecriture.total_debit}, Crédit: {ecriture.total_credit})")
