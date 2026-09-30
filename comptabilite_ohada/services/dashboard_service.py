@@ -86,12 +86,12 @@ class DashboardService:
         ]
 
     @staticmethod
-    def alertes():
+    def alertes(entreprise_id=""):
         alerts = []
         config = None
         try:
             from ..models import ConfigurationComptable
-            config = ConfigurationComptable.get_config()
+            config = ConfigurationComptable.get_config(entreprise_id)
         except Exception:
             return alerts
 
@@ -101,7 +101,9 @@ class DashboardService:
                 "message": "Le plan comptable n'est pas encore initialisé",
             })
 
-        nb_brouillon = EcritureComptable.objects.filter(validee=False).count()
+        nb_brouillon = EcritureComptable.objects.filter(
+            validee=False, entreprise_id=entreprise_id or ""
+        ).count()
         if nb_brouillon > 0:
             alerts.append({
                 "niveau": "info",
