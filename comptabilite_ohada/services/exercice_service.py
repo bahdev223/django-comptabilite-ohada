@@ -138,12 +138,29 @@ class ValidationService:
         journal = ecriture.journal
         ref = f"ANNULE-{ecriture.reference}"[:50]
         lignes_inversees = []
-        for l in ecriture.lignes.all():
+        for l in ecriture.lignes.prefetch_related(
+            "affectations_analytiques__dimension",
+            "affectations_analytiques__valeur",
+        ):
+            dimensions = {}
+            for affectation in l.affectations_analytiques.all():
+                dimensions.setdefault(
+                    affectation.dimension.code,
+                    [],
+                ).append({
+                    "code": affectation.valeur.code,
+                    "libelle": affectation.valeur.libelle,
+                    "external_id": affectation.valeur.external_id,
+                    "pourcentage": affectation.pourcentage,
+                    "montant": affectation.montant,
+                    "metadata": affectation.valeur.metadata,
+                })
             lignes_inversees.append({
                 "compte": l.compte,
                 "debit": l.credit,
                 "credit": l.debit,
                 "libelle": f"ANNULATION - {l.libelle or ecriture.libelle}",
+                "dimensions": dimensions,
             })
         return EcritureService.creer_ecriture(
             reference=ref,

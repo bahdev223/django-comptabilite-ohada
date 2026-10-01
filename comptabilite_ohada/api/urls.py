@@ -10,6 +10,7 @@ from .views import (
     RegleEvenementComptableViewSet, EvenementMetierViewSet,
     OrganisationComptableViewSet,
     ReleveBancaireViewSet,
+    analytic_costs_view,
     health_view,
 )
 
@@ -29,6 +30,7 @@ router.register(r"events", EvenementMetierViewSet)
 
 urlpatterns = [
     path("api/v1/health/", health_view, name="api_health"),
+    path("api/v1/analytics/costs/", analytic_costs_view, name="api_analytic_costs"),
     path("api/v1/auth/token/", obtain_auth_token, name="api_token_auth"),
     # Contrat cible pour les intégrations externes.
     path("api/v1/", include(router.urls)),

@@ -23,6 +23,7 @@ from ..services.journal_service import BalanceService, GrandLivreService
 from ..services.bilan_service import BilanService
 from ..services.exercice_service import ExerciceService, ValidationService
 from ..services.amortissement_service import AmortissementService
+from ..services.analytique_service import AnalytiqueService
 from ..services.evenement_service import EvenementService
 from ..services.rapprochement_service import RapprochementService
 from .serializers import (
@@ -47,6 +48,28 @@ def health_view(request):
         "service": "django-comptabilite-ohada",
         "api": "v1",
     })
+
+
+@api_view(["GET"])
+@api_permission_classes([IsAuthenticated, AccountingTenantPermission])
+def analytic_costs_view(request):
+    reserved = {"date_debut", "date_fin", "format"}
+    dimensions = {
+        key.upper(): value
+        for key, value in request.query_params.items()
+        if key not in reserved and value not in (None, "")
+    }
+    if not dimensions:
+        raise DRFValidationError(
+            "Fournissez au moins une dimension, par exemple PROJECT=PRJ-001."
+        )
+    result = AnalytiqueService.calculer_couts(
+        entreprise_id=resolve_entreprise_id(request),
+        dimensions=dimensions,
+        date_debut=request.query_params.get("date_debut"),
+        date_fin=request.query_params.get("date_fin"),
+    )
+    return Response(result)
 
 
 class EntrepriseScopedViewSetMixin:
