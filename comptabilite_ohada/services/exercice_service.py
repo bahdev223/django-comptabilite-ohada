@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from ..models import ExerciceComptable, ConfigurationComptable, EcritureComptable
 from ..models import CompteComptable, LigneEcritureComptable
@@ -95,11 +96,17 @@ class ValidationService:
             raise ValueError(f"Écriture {ecriture.reference} déjà validée")
         if ecriture.exercice.cloture:
             raise ValueError("Une écriture d'un exercice clôturé ne peut pas être validée.")
-        if not (
-            ecriture.exercice.date_debut
-            <= ecriture.date_ecriture
-            <= ecriture.exercice.date_fin
-        ):
+        date_debut = (
+            parse_date(ecriture.exercice.date_debut)
+            if isinstance(ecriture.exercice.date_debut, str)
+            else ecriture.exercice.date_debut
+        )
+        date_fin = (
+            parse_date(ecriture.exercice.date_fin)
+            if isinstance(ecriture.exercice.date_fin, str)
+            else ecriture.exercice.date_fin
+        )
+        if not (date_debut <= ecriture.date_ecriture <= date_fin):
             raise ValueError("La date de l'écriture est hors de la période de l'exercice.")
         if (
             (ecriture.journal.entreprise_id or "") != (ecriture.entreprise_id or "")
