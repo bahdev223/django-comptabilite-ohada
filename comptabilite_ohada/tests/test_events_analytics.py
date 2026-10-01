@@ -10,7 +10,10 @@ from comptabilite_ohada.models import (
     ExerciceComptable,
     RegleEvenementComptable,
 )
+from comptabilite_ohada.services.analytique_service import AnalytiqueService
+from comptabilite_ohada.services.ecriture_service import EcritureService
 from comptabilite_ohada.services.evenement_service import EvenementService
+from comptabilite_ohada.services.exercice_service import ValidationService
 
 
 class EvenementIntegrationTest(TestCase):
@@ -128,3 +131,94 @@ class EvenementIntegrationTest(TestCase):
         self.assertTrue(created)
         self.assertEqual(evenement.statut, "IGNORE")
         self.assertIsNone(evenement.ecriture)
+
+
+
+class CoutAnalytiqueIntegrationTest(TestCase):
+    def setUp(self):
+        self.entreprise_id = "COST-ORG"
+        self.exercice = ExerciceComptable.objects.create(
+            code="2026-COST",
+            date_debut="2026-01-01",
+            date_fin="2026-12-31",
+            entreprise_id=self.entreprise_id,
+        )
+        self.charge = CompteComptable.objects.create(
+            code="658",
+            libelle="Charges diverses",
+            nature="CHARGE",
+            sens="DEBIT",
+            categorie="resultat",
+            entreprise_id=self.entreprise_id,
+        )
+        self.mobile = CompteComptable.objects.create(
+            code="552",
+            libelle="Mobile Money",
+            nature="ACTIF",
+            sens="DEBIT",
+            categorie="bilan",
+            entreprise_id=self.entreprise_id,
+        )
+
+    def test_cout_projet_est_annule_par_contrepassation(self):
+        journal = EcritureService.get_or_create_journal(
+            "OD",
+            "Opérations diverses",
+            "OD",
+            self.entreprise_id,
+        )
+        ecriture = EcritureService.creer_ecriture(
+            reference="COST-001",
+            date_ecriture="2026-06-03",
+            libelle="Dépense projet",
+            journal=journal,
+            exercice=self.exercice,
+            entreprise_id=self.entreprise_id,
+            lignes=[
+                {
+                    "compte": self.charge,
+                    "debit": Decimal("5000"),
+                    "dimensions": {
+                        "PROJECT": "PRJ-1",
+                        "PHASE": "INSTALL",
+                    },
+                },
+                {
+                    "compte": self.mobile,
+                    "credit": Decimal("5000"),
+                    "dimensions": {
+                        "PROJECT": "PRJ-1",
+                        "PHASE": "INSTALL",
+                    },
+                },
+            ],
+        )
+
+        cout = AnalytiqueService.calculer_couts(
+            entreprise_id=self.entreprise_id,
+            dimensions={"PROJECT": "PRJ-1"},
+        )
+        self.assertEqual(cout["total_cost"], Decimal("5000.00"))
+        self.assertEqual(cout["line_count"], 1)
+
+        reversal = ValidationService.annuler_ecriture(
+            ecriture,
+            raison="Erreur de saisie",
+        )
+        self.assertTrue(reversal.validee)
+        self.assertEqual(
+            reversal.lignes.filter(
+                compte__code="658",
+                affectations_analytiques__dimension__code="PROJECT",
+                affectations_analytiques__valeur__code="PRJ-1",
+            ).count(),
+            1,
+        )
+
+        cout_apres = AnalytiqueService.calculer_couts(
+            entreprise_id=self.entreprise_id,
+            dimensions={"PROJECT": "PRJ-1"},
+        )
+        self.assertEqual(cout_apres["total_cost"], Decimal("0.00"))
+        self.assertEqual(cout_apres["allocated_debit"], Decimal("5000.00"))
+        self.assertEqual(cout_apres["allocated_credit"], Decimal("5000.00"))
