@@ -1,4 +1,4 @@
-from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from django.views.generic import ListView, DetailView, CreateView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse_lazy
 from django.contrib import messages
@@ -6,6 +6,11 @@ from django.shortcuts import redirect
 
 from ..models import ExerciceComptable
 from ..services.exercice_service import ExerciceService
+from ..tenant import resolve_entreprise_id
+
+
+def _entreprise_id(request):
+    return resolve_entreprise_id(request)
 
 
 class ExerciceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -14,6 +19,9 @@ class ExerciceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     context_object_name = "exercices"
     permission_required = "comptabilite_ohada.view_exercicecomptable"
 
+    def get_queryset(self):
+        return super().get_queryset().filter(entreprise_id=_entreprise_id(self.request))
+
 
 class ExerciceDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = ExerciceComptable
@@ -21,14 +29,18 @@ class ExerciceDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView
     context_object_name = "exercice"
     permission_required = "comptabilite_ohada.view_exercicecomptable"
 
+    def get_queryset(self):
+        return super().get_queryset().filter(entreprise_id=_entreprise_id(self.request))
+
 
 class ExerciceCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
     model = ExerciceComptable
     template_name = "comptabilite_ohada/exercice_form.html"
-    fields = ["code", "libelle", "date_debut", "date_fin", "societe"]
+    fields = ["code", "date_debut", "date_fin"]
     permission_required = "comptabilite_ohada.add_exercicecomptable"
 
     def form_valid(self, form):
+        form.instance.entreprise_id = _entreprise_id(self.request)
         messages.success(self.request, "Exercice créé avec succès.")
         return super().form_valid(form)
 
@@ -36,6 +48,9 @@ class ExerciceCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView
 class ExerciceCloturerView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = ExerciceComptable
     permission_required = "comptabilite_ohada.change_exercicecomptable"
+
+    def get_queryset(self):
+        return super().get_queryset().filter(entreprise_id=_entreprise_id(self.request))
 
     def post(self, request, *args, **kwargs):
         exercice = self.get_object()
@@ -51,10 +66,13 @@ class ExerciceRouvrirView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
     model = ExerciceComptable
     permission_required = "comptabilite_ohada.change_exercicecomptable"
 
+    def get_queryset(self):
+        return super().get_queryset().filter(entreprise_id=_entreprise_id(self.request))
+
     def post(self, request, *args, **kwargs):
         exercice = self.get_object()
         try:
-            ExerciceService.rouvrir(exercice)
+            ExerciceService.rouvrir(exercice, request.user)
             messages.success(request, "Exercice rouvert avec succès.")
         except Exception as e:
             messages.error(request, str(e))

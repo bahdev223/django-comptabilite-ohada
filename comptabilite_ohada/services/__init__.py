@@ -7,6 +7,8 @@ from .initialisation_service import InitialisationService
 from .export_service import ExportService
 from .dashboard_service import DashboardService
 from .rapprochement_service import RapprochementService
+from .analytique_service import AnalytiqueService
+from .evenement_service import EvenementService
 
 __all__ = [
     "EcritureService",
@@ -21,4 +23,6 @@ __all__ = [
     "ExportService",
     "DashboardService",
     "RapprochementService",
+    "AnalytiqueService",
+    "EvenementService",
 ]

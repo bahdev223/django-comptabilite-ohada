@@ -6,6 +6,7 @@ from ..models import (
     EcritureComptable, LigneEcritureComptable,
 )
 from ..services.journal_service import BalanceService
+from ..services.ecriture_service import EcritureService
 
 
 class BalanceServiceTest(TestCase):
@@ -34,16 +35,17 @@ class BalanceServiceTest(TestCase):
         self.assertEqual(len(balance), 0)
 
     def test_balance_apres_ecritures(self):
-        ecriture_v = EcritureComptable.objects.create(
-            journal=self.journal, exercice=self.exercice,
-            date_ecriture="2025-06-01", reference="VN-001",
-            libelle="Vente", validee=True, created_by=self.user,
-        )
-        LigneEcritureComptable.objects.create(
-            ecriture=ecriture_v, compte=self.compte_caisse, debit=100000,
-        )
-        LigneEcritureComptable.objects.create(
-            ecriture=ecriture_v, compte=self.compte_produit, credit=100000,
+        EcritureService.creer_ecriture(
+            journal=self.journal,
+            exercice=self.exercice,
+            date_ecriture="2025-06-01",
+            reference="VN-001",
+            libelle="Vente",
+            user=self.user,
+            lignes=[
+                {"compte": self.compte_caisse, "debit": 100000},
+                {"compte": self.compte_produit, "credit": 100000},
+            ],
         )
 
         service = BalanceService()

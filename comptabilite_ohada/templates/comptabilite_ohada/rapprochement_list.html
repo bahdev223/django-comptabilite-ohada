@@ -10,25 +10,23 @@
             <thead>
                 <tr>
                     <th>Compte</th>
-                    <th>Date relev&eacute;</th>
-                    <th>Solde comptable</th>
-                    <th>Solde banque</th>
-                    <th>&Eacute;cart</th>
+                    <th>P&eacute;riode</th>
+                    <th class="text-end">Solde ouverture</th>
+                    <th class="text-end">Solde cl&ocirc;ture</th>
                     <th>Statut</th>
                 </tr>
             </thead>
             <tbody>
                 {% for releve in releves %}
                 <tr>
-                    <td>{{ releve.compte_bancaire }}</td>
-                    <td>{{ releve.date_releve|date:"d/m/Y" }}</td>
-                    <td class="text-end">{{ releve.solde_comptable|floatformat:2 }}</td>
-                    <td class="text-end">{{ releve.solde_banque|floatformat:2 }}</td>
-                    <td class="text-end">{{ releve.solde_comptable|add:releve.solde_banque|floatformat:2 }}</td>
-                    <td>{% if releve.rapproche %}<span class="badge bg-success">Rapproch&eacute;</span>{% else %}<span class="badge bg-warning">En cours</span>{% endif %}</td>
+                    <td><a href="{% url 'comptabilite:rapprochement_detail' releve.pk %}">{{ releve.compte_comptable_code }}</a></td>
+                    <td>{{ releve.date_debut|date:"d/m/Y" }} &rarr; {{ releve.date_fin|date:"d/m/Y" }}</td>
+                    <td class="text-end">{{ releve.solde_ouverture|floatformat:2 }}</td>
+                    <td class="text-end">{{ releve.solde_cloture|floatformat:2 }}</td>
+                    <td>{{ releve.get_statut_display }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-muted">Aucun relev&eacute;.</td></tr>
+                <tr><td colspan="5" class="text-muted">Aucun relev&eacute;.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

@@ -17,6 +17,7 @@ class LigneRegle:
     debit: Decimal = Decimal("0.00")
     credit: Decimal = Decimal("0.00")
     libelle: Optional[str] = None
+    dimensions: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -52,16 +53,18 @@ class MoteurRegles:
     def enregistrer(self, regle: RegleComptable):
         self._regles.append(regle)
 
+    def codes_disponibles(self):
+        return sorted({regle.code for regle in self._regles})
+
     def appliquer(self, type_operation: str, **contexte) -> List[EcritureRegle]:
-        """Applique toutes les règles compatibles."""
+        """Applique uniquement la règle explicitement demandée."""
         resultats = []
         for regle in self._regles:
-            try:
-                ecriture = regle.appliquer(**contexte)
-                if ecriture:
-                    resultats.append(ecriture)
-            except Exception:
+            if regle.code != type_operation:
                 continue
+            ecriture = regle.appliquer(**contexte)
+            if ecriture:
+                resultats.append(ecriture)
         return resultats
 
 

@@ -27,8 +27,10 @@ class JournalService:
         }
 
     @staticmethod
-    def liste_avec_totaux(exercice=None):
-        journaux = JournalComptable.objects.filter(actif=True)
+    def liste_avec_totaux(exercice=None, entreprise_id=""):
+        if exercice is not None:
+            entreprise_id = exercice.entreprise_id or ""
+        journaux = JournalComptable.objects.filter(actif=True, entreprise_id=entreprise_id or "")
         result = []
         for j in journaux:
             qs = EcritureComptable.objects.filter(journal=j, validee=True)
@@ -48,13 +50,15 @@ class BalanceService:
     """Balance des comptes."""
 
     @staticmethod
-    def balance(exercice=None, date_debut=None, date_fin=None):
+    def balance(exercice=None, date_debut=None, date_fin=None, entreprise_id=""):
         if exercice:
             date_debut = exercice.date_debut
             date_fin = exercice.date_fin
+            entreprise_id = exercice.entreprise_id or ""
 
         lignes = LigneEcritureComptable.objects.filter(
             ecriture__validee=True,
+            ecriture__entreprise_id=entreprise_id or "",
         )
         if date_debut:
             lignes = lignes.filter(ecriture__date_ecriture__gte=date_debut)
@@ -74,11 +78,18 @@ class BalanceService:
             data[c.code]["total_credit"] += l.credit
 
         for v in data.values():
+            net = v["total_debit"] - v["total_credit"]
+            v["solde_debiteur"] = max(net, Decimal("0.00"))
+            v["solde_crediteur"] = max(-net, Decimal("0.00"))
             solde_normal = v["compte"].solde_normal
             if solde_normal == "DEBIT":
-                v["solde"] = v["total_debit"] - v["total_credit"]
+                v["solde"] = net
+            elif solde_normal == "CREDIT":
+                v["solde"] = -net
             else:
-                v["solde"] = v["total_credit"] - v["total_debit"]
+                # Pour un compte mixte, un signe positif représente un
+                # solde débiteur et un signe négatif un solde créditeur.
+                v["solde"] = net
 
         return sorted(data.values(), key=lambda x: x["compte"].code)
 
@@ -96,16 +107,21 @@ class BalanceService:
         credit = lignes.aggregate(t=Sum("credit"))["t"] or Decimal("0.00")
         if compte.solde_normal == "DEBIT":
             return debit - credit
-        return credit - debit
+        if compte.solde_normal == "CREDIT":
+            return credit - debit
+        return debit - credit
 
 
 class GrandLivreService:
     """Grand livre des comptes."""
 
     @staticmethod
-    def grand_livre(compte_code=None, exercice=None, date_debut=None, date_fin=None):
+    def grand_livre(compte_code=None, exercice=None, date_debut=None, date_fin=None, entreprise_id=""):
+        if exercice:
+            entreprise_id = exercice.entreprise_id or ""
         lignes = LigneEcritureComptable.objects.filter(
             ecriture__validee=True,
+            ecriture__entreprise_id=entreprise_id or "",
         ).select_related("ecriture", "compte").order_by("ecriture__date_ecriture")
 
         if compte_code:

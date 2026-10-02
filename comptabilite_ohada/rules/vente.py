@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import date, datetime
 
 from .engine import RegleComptable, EcritureRegle, LigneRegle, moteur
 from ..services.ecriture_service import EcritureService
@@ -15,7 +16,7 @@ class RegleVenteAuComptant(RegleComptable):
         if montant <= 0:
             return None
         return EcritureRegle(
-            reference=f"VN-{contexte.get('date', date.today()).strftime('%Y%m%d%H%M%S')}",
+            reference=f"VN-{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
             date_ecriture=contexte.get("date", date.today()),
             libelle=contexte.get("libelle", "Vente au comptant"),
             journal_code="VN",
@@ -39,7 +40,7 @@ class RegleAchatComptant(RegleComptable):
         if montant <= 0:
             return None
         return EcritureRegle(
-            reference=f"AC-{contexte.get('date', date.today()).strftime('%Y%m%d%H%M%S')}",
+            reference=f"AC-{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
             date_ecriture=contexte.get("date", date.today()),
             libelle=contexte.get("libelle", "Achat au comptant"),
             journal_code="AC",
@@ -52,6 +53,5 @@ class RegleAchatComptant(RegleComptable):
         )
 
 
-from datetime import date
 moteur.enregistrer(RegleVenteAuComptant())
 moteur.enregistrer(RegleAchatComptant())

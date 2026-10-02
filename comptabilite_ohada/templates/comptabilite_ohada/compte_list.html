@@ -13,7 +13,7 @@
         <div class="col-auto">
             <select name="classe" class="form-select form-select-sm" onchange="this.form.submit()">
                 <option value="">Toutes les classes</option>
-                {% for c in "12345678" %}
+                {% for c in "123456789" %}
                 <option value="{{ c }}" {% if request.GET.classe == c %}selected{% endif %}>Classe {{ c }}</option>
                 {% endfor %}
             </select>
