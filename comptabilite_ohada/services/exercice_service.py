@@ -106,7 +106,14 @@ class ValidationService:
             if isinstance(ecriture.exercice.date_fin, str)
             else ecriture.exercice.date_fin
         )
-        if not (date_debut <= ecriture.date_ecriture <= date_fin):
+        date_ecriture = (
+            parse_date(ecriture.date_ecriture)
+            if isinstance(ecriture.date_ecriture, str)
+            else ecriture.date_ecriture
+        )
+        if date_ecriture is None:
+            raise ValueError("La date de l'écriture est invalide.")
+        if not (date_debut <= date_ecriture <= date_fin):
             raise ValueError("La date de l'écriture est hors de la période de l'exercice.")
         if (
             (ecriture.journal.entreprise_id or "") != (ecriture.entreprise_id or "")
