@@ -93,6 +93,35 @@ COMPTABILITE_OHADA = {
 }
 ```
 
+## Intégration analytique avec SahelTech Platform
+
+Pour exposer le service comptable à la plateforme, monter exclusivement
+`comptabilite_ohada.integration_urls` comme `ROOT_URLCONF` sur un hôte dédié.
+L'ancienne API REST de `comptabilite_ohada.urls` ne doit pas être montée sur cet
+hôte : elle n'utilise pas les clés d'intégration par entreprise.
+
+```python
+import os
+
+ROOT_URLCONF = 'comptabilite_ohada.integration_urls'
+COMPTABILITE_OHADA = {
+    'COMPTES_INTEGRATION_ENABLED': False,
+    'DEVISE_PAR_DEFAUT': 'XOF',
+    'INTEGRATION_KEYS': {
+        'CODE_ENTREPRISE': os.environ['ACCOUNTING_KEY_CODE_ENTREPRISE'],
+    },
+}
+```
+
+L'hôte expose `POST /api/v1/events/` et `GET /api/v1/analytics/costs/`.
+Chaque requête porte `X-API-Key`; la clé détermine l'entreprise côté serveur.
+`PROJECT` est obligatoire pour la recherche de coûts et les filtres
+`PHASE`, `ACTIVITY`, `TASK`, `MISSION`, `CONTRACT` sont facultatifs. Les écritures
+reçues sont équilibrées, enregistrées une seule fois par clé d'idempotence et
+rattachées à des comptes, journaux et exercices de cette entreprise. Les coûts
+proviennent seulement des lignes de charges validées. Configurer la même devise
+dans la plateforme et dans le service comptable.
+
 ## Licence
 
 MIT
