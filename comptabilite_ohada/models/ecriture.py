@@ -1,6 +1,5 @@
 from decimal import Decimal
 
-from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -72,6 +71,7 @@ class LigneEcritureComptable(models.Model):
     debit = models.DecimalField(_("Débit"), max_digits=15, decimal_places=2, default=Decimal("0.00"))
     credit = models.DecimalField(_("Crédit"), max_digits=15, decimal_places=2, default=Decimal("0.00"))
     libelle = models.CharField(_("Libellé ligne"), max_length=200, blank=True, null=True)
+    dimensions = models.JSONField(default=dict, blank=True)
 
     class Meta:
         verbose_name = _("Ligne d'écriture")
@@ -89,3 +89,23 @@ class LigneEcritureComptable(models.Model):
             raise ValidationError(_("Une ligne ne peut pas avoir débit ET crédit"))
         if self.debit < 0 or self.credit < 0:
             raise ValidationError(_("Les montants doivent être positifs"))
+
+
+class IntegrationReceipt(models.Model):
+    """Durable acknowledgement of a tenant-scoped external accounting event."""
+
+    entreprise_id = models.CharField(max_length=255, db_index=True)
+    idempotency_key = models.CharField(max_length=255)
+    payload_hash = models.CharField(max_length=64)
+    ecriture = models.ForeignKey(
+        EcritureComptable, on_delete=models.PROTECT, null=True, related_name="integration_receipts"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["entreprise_id", "idempotency_key"],
+                name="uniq_accounting_receipt_tenant_key",
+            )
+        ]

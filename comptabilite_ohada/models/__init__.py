@@ -1,25 +1,32 @@
-from .compte import CompteComptable, NatureCompte, SensCompte, TypeCompteComptable, CategorieCompte
-from .ecriture import EcritureComptable, LigneEcritureComptable
-from .journal import JournalComptable
-from .exercice import ExerciceComptable
-from .configuration import ConfigurationComptable, SoldeInitialComptable
 from .amortissement import Immobilisation, PlanAmortissement
-from .rapprochement import ReleveBancaire, LigneReleveBancaire
+from .compte import (
+    CategorieCompte,
+    CompteComptable,
+    NatureCompte,
+    SensCompte,
+    TypeCompteComptable,
+)
+from .configuration import ConfigurationComptable, SoldeInitialComptable
+from .ecriture import EcritureComptable, IntegrationReceipt, LigneEcritureComptable
+from .exercice import ExerciceComptable
+from .journal import JournalComptable
+from .rapprochement import LigneReleveBancaire, ReleveBancaire
 
 __all__ = [
-    "CompteComptable",
-    "NatureCompte",
-    "SensCompte",
-    "TypeCompteComptable",
     "CategorieCompte",
-    "EcritureComptable",
-    "LigneEcritureComptable",
-    "JournalComptable",
-    "ExerciceComptable",
+    "CompteComptable",
     "ConfigurationComptable",
-    "SoldeInitialComptable",
+    "EcritureComptable",
+    "ExerciceComptable",
     "Immobilisation",
+    "IntegrationReceipt",
+    "JournalComptable",
+    "LigneEcritureComptable",
+    "LigneReleveBancaire",
+    "NatureCompte",
     "PlanAmortissement",
     "ReleveBancaire",
-    "LigneReleveBancaire",
+    "SensCompte",
+    "SoldeInitialComptable",
+    "TypeCompteComptable",
 ]
