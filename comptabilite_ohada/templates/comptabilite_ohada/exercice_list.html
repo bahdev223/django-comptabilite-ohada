@@ -11,7 +11,6 @@
             <thead>
                 <tr>
                     <th>Code</th>
-                    <th>Libell&eacute;</th>
                     <th>D&eacute;but</th>
                     <th>Fin</th>
                     <th>Statut</th>
@@ -22,7 +21,6 @@
                 {% for exercice in exercices %}
                 <tr>
                     <td><a href="{% url 'comptabilite:exercice_detail' exercice.pk %}">{{ exercice.code }}</a></td>
-                    <td>{{ exercice.libelle }}</td>
                     <td>{{ exercice.date_debut|date:"d/m/Y" }}</td>
                     <td>{{ exercice.date_fin|date:"d/m/Y" }}</td>
                     <td>
@@ -37,7 +35,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-muted">Aucun exercice.</td></tr>
+                <tr><td colspan="5" class="text-muted">Aucun exercice.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

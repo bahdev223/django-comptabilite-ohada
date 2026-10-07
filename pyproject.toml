@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-comptabilite-ohada"
-version = "0.1.0"
+version = "0.2.0"
 description = "SYSCOHADA double-entry accounting engine for Django ERP — Chart of accounts, journal entries, financial statements, fiscal years, amortization, bank reconciliation"
 readme = "README.md"
 license = {text = "MIT"}
@@ -35,13 +35,14 @@ dependencies = [
 
 [project.optional-dependencies]
 rest = ["djangorestframework>=3.14", "django-filter"]
+server = ["gunicorn>=23", "psycopg[binary]>=3.1"]
 comptes = ["django-comptes"]
 export = ["openpyxl", "reportlab", "xlwt"]
 
 [project.urls]
-Homepage = "https://github.com/bah-dev/django-comptabilite-ohada"
-Repository = "https://github.com/bah-dev/django-comptabilite-ohada.git"
-Documentation = "https://github.com/bah-dev/django-comptabilite-ohada#readme"
+Homepage = "https://github.com/bahdev223/django-comptabilite-ohada"
+Repository = "https://github.com/bahdev223/django-comptabilite-ohada.git"
+Documentation = "https://github.com/bahdev223/django-comptabilite-ohada#readme"
 
 [tool.setuptools.packages.find]
 include = ["comptabilite_ohada*"]

@@ -1,6 +1,7 @@
 from decimal import Decimal
 from datetime import date
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -14,7 +15,8 @@ class Immobilisation(models.Model):
         ("FINANCIERE", _("Immobilisation financière")),
     ]
 
-    code = models.CharField(_("Code"), max_length=20, unique=True)
+    entreprise_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
+    code = models.CharField(_("Code"), max_length=20)
     libelle = models.CharField(_("Libellé"), max_length=200)
     type_immobilisation = models.CharField(
         _("Type"), max_length=20, choices=TYPE_CHOICES,
@@ -49,9 +51,31 @@ class Immobilisation(models.Model):
         verbose_name = _("Immobilisation")
         verbose_name_plural = _("Immobilisations")
         ordering = ["code"]
+        unique_together = [["entreprise_id", "code"]]
 
     def __str__(self):
         return f"{self.code} - {self.libelle}"
+
+    def clean(self):
+        if self.duree_ans <= 0:
+            raise ValidationError("La durée d'amortissement doit être strictement positive.")
+        if self.valeur_originale < 0 or self.valeur_residuelle < 0:
+            raise ValidationError("Les valeurs d'immobilisation doivent être positives.")
+        if self.valeur_residuelle > self.valeur_originale:
+            raise ValidationError("La valeur résiduelle ne peut pas dépasser la valeur d'origine.")
+        for compte in (
+            self.compte_immobilisation,
+            self.compte_amortissement,
+            self.compte_charge,
+        ):
+            if (compte.entreprise_id or "") != (self.entreprise_id or ""):
+                raise ValidationError(
+                    "Les comptes de l'immobilisation doivent appartenir à la même entreprise."
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     @property
     def base_amortissable(self):

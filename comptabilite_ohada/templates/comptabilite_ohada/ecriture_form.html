@@ -4,12 +4,67 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>{% if object %}Modifier{% else %}Nouvelle{% endif %} &eacute;criture</h1>
 </div>
-<div class="stat-card">
-    <form method="post">
-        {% csrf_token %}
+
+<form method="post">
+    {% csrf_token %}
+    <div class="stat-card">
+        <h5>En-t&ecirc;te</h5>
+        {{ form.non_field_errors }}
         {{ form.as_p }}
-        <button type="submit" class="btn btn-primary">Enregistrer</button>
-        <a href="{% url 'comptabilite:ecriture_list' %}" class="btn btn-outline-secondary">Annuler</a>
-    </form>
-</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Lignes comptables</h5>
+            <span class="text-muted">Au moins deux lignes. D&eacute;bit = Cr&eacute;dit avant validation.</span>
+        </div>
+        {{ formset.management_form }}
+        {{ formset.non_form_errors }}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>Compte</th>
+                        <th>Libell&eacute;</th>
+                        <th>D&eacute;bit</th>
+                        <th>Cr&eacute;dit</th>
+                        <th>Supprimer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ligne_form in formset %}
+                    <tr>
+                        {% for hidden in ligne_form.hidden_fields %}{{ hidden }}{% endfor %}
+                        <td>
+                            {{ ligne_form.compte.errors }}
+                            {{ ligne_form.compte }}
+                        </td>
+                        <td>
+                            {{ ligne_form.libelle.errors }}
+                            {{ ligne_form.libelle }}
+                        </td>
+                        <td>
+                            {{ ligne_form.debit.errors }}
+                            {{ ligne_form.debit }}
+                        </td>
+                        <td>
+                            {{ ligne_form.credit.errors }}
+                            {{ ligne_form.credit }}
+                        </td>
+                        <td>
+                            {% if ligne_form.DELETE %}{{ ligne_form.DELETE }}{% endif %}
+                        </td>
+                    </tr>
+                    {% if ligne_form.non_field_errors %}
+                    <tr><td colspan="5" class="text-danger">{{ ligne_form.non_field_errors }}</td></tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Enregistrer le brouillon</button>
+    <a href="{% url 'comptabilite:ecriture_list' %}" class="btn btn-outline-secondary">Annuler</a>
+</form>
 {% endblock %}

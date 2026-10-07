@@ -1,4 +1,6 @@
 from django.test import TestCase
+from datetime import date
+
 from django.contrib.auth.models import User
 
 from ..models import (
@@ -14,9 +16,10 @@ class EcritureServiceTest(TestCase):
         self.journal = JournalComptable.objects.create(
             code="VN", libelle="Ventes", type_journal="VN"
         )
+        annee = date.today().year
         self.exercice = ExerciceComptable.objects.create(
-            code="2025",
-            date_debut="2025-01-01", date_fin="2025-12-31",
+            code=str(annee),
+            date_debut=f"{annee}-01-01", date_fin=f"{annee}-12-31",
         )
         self.compte_caisse = CompteComptable.objects.create(
             code="571", libelle="Caisse", nature="DEBIT", type_compte="compte",

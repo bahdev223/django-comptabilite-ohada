@@ -1,4 +1,6 @@
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q, F
 from django.utils.translation import gettext_lazy as _
 
 
@@ -26,9 +28,34 @@ class ExerciceComptable(models.Model):
         verbose_name = _("Exercice comptable")
         verbose_name_plural = _("Exercices comptables")
         ordering = ["-date_debut"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(date_fin__gte=F("date_debut")),
+                name="exercice_dates_valides",
+            )
+        ]
 
     def __str__(self):
         return f"Exercice {self.code} ({self.date_debut} → {self.date_fin})"
+
+    def clean(self):
+        if self.date_debut and self.date_fin and self.date_fin < self.date_debut:
+            raise ValidationError("La date de fin doit être postérieure à la date de début.")
+
+        if self.date_debut and self.date_fin:
+            chevauchement = type(self).objects.filter(
+                entreprise_id=self.entreprise_id or "",
+                date_debut__lte=self.date_fin,
+                date_fin__gte=self.date_debut,
+            ).exclude(pk=self.pk)
+            if chevauchement.exists():
+                raise ValidationError(
+                    "Un autre exercice comptable chevauche déjà cette période pour cette entreprise."
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     @property
     def est_ouvert(self):

@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 class ConfigurationComptable(models.Model):
     """Configuration générale de la comptabilité."""
 
+    entreprise_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
     nom = models.CharField(_("Nom"), max_length=200, default="Mon Entreprise")
     devise = models.CharField(_("Devise"), max_length=10, default="FCFA")
 
@@ -27,6 +28,7 @@ class ConfigurationComptable(models.Model):
 
     compte_caisse_defaut = models.CharField(_("Compte caisse défaut"), max_length=20, default="571")
     compte_banque_defaut = models.CharField(_("Compte banque défaut"), max_length=20, default="521")
+    compte_mobile_money_defaut = models.CharField(_("Compte Mobile Money défaut"), max_length=20, default="552")
     compte_client_defaut = models.CharField(_("Compte client défaut"), max_length=20, default="411")
     compte_fournisseur_defaut = models.CharField(_("Compte fournisseur défaut"), max_length=20, default="401")
 
@@ -39,13 +41,22 @@ class ConfigurationComptable(models.Model):
     class Meta:
         verbose_name = _("Configuration comptable")
         verbose_name_plural = _("Configuration comptable")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["entreprise_id"],
+                name="uniq_configuration_comptable_par_entreprise",
+            )
+        ]
 
     def __str__(self):
         return self.nom
 
     @classmethod
-    def get_config(cls):
-        obj, _ = cls.objects.get_or_create(pk=1)
+    def get_config(cls, entreprise_id=""):
+        obj, _ = cls.objects.get_or_create(
+            entreprise_id=entreprise_id or "",
+            defaults={"nom": "Mon Entreprise"},
+        )
         return obj
 
 
@@ -59,6 +70,7 @@ class SoldeInitialComptable(models.Model):
 
     caisse = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     banque = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    mobile_money = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     stocks = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     clients = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     fournisseurs = models.DecimalField(max_digits=15, decimal_places=2, default=0)

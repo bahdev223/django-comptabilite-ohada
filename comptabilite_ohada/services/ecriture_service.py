@@ -3,6 +3,7 @@ from datetime import date, datetime
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from ..models import EcritureComptable, LigneEcritureComptable, JournalComptable
 from ..models import CompteComptable, ExerciceComptable
@@ -16,44 +17,50 @@ class EcritureService:
     # ─── Helpers ──────────────────────────────────────────────
 
     @classmethod
-    def get_exercice(cls, date_operation=None):
+    def get_exercice(cls, date_operation=None, entreprise_id=""):
         if date_operation is None:
             date_operation = date.today()
-        exercice = ExerciceComptable.objects.filter(
+        return ExerciceComptable.objects.filter(
+            entreprise_id=entreprise_id or "",
             date_debut__lte=date_operation,
             date_fin__gte=date_operation,
             cloture=False,
         ).first()
-        if not exercice:
-            exercice = ExerciceComptable.objects.filter(cloture=False).first()
-        return exercice
 
     @classmethod
-    def get_or_create_journal(cls, code, libelle, type_journal):
-        journal, _ = JournalComptable.objects.get_or_create(
+    def get_or_create_journal(cls, code, libelle, type_journal, entreprise_id=""):
+        journal, created = JournalComptable.objects.get_or_create(
+            entreprise_id=entreprise_id or "",
             code=code,
             defaults={"libelle": libelle, "type_journal": type_journal, "actif": True},
         )
+        if not created and (
+            journal.type_journal != type_journal or not journal.actif
+        ):
+            journal.type_journal = type_journal
+            journal.actif = True
+            journal.save(update_fields=["type_journal", "actif"])
         return journal
 
     @classmethod
-    def get_compte(cls, code_or_id):
+    def get_compte(cls, code_or_id, entreprise_id=""):
         if code_or_id is None:
             return None
+        scope = {"entreprise_id": entreprise_id or "", "actif": True}
         if isinstance(code_or_id, int):
-            return CompteComptable.objects.filter(id=code_or_id, actif=True).first()
-        compte = CompteComptable.objects.filter(code=str(code_or_id), actif=True).first()
+            return CompteComptable.objects.filter(id=code_or_id, **scope).first()
+        compte = CompteComptable.objects.filter(code=str(code_or_id), **scope).first()
         if compte:
             return compte
         if isinstance(code_or_id, str) and code_or_id.isdigit():
-            return CompteComptable.objects.filter(id=int(code_or_id), actif=True).first()
+            return CompteComptable.objects.filter(id=int(code_or_id), **scope).first()
         return None
 
     @classmethod
-    def get_compte_par_type_caisse(cls, type_caisse):
-        mapping = {"ESPECES": "571", "BANQUE": "521", "MOBILE_MONEY": "581"}
+    def get_compte_par_type_caisse(cls, type_caisse, entreprise_id=""):
+        mapping = {"ESPECES": "571", "BANQUE": "521", "MOBILE_MONEY": "552"}
         code = mapping.get(type_caisse, "571")
-        return cls.get_compte(code)
+        return cls.get_compte(code, entreprise_id=entreprise_id)
 
     @classmethod
     def generer_reference(cls, prefix, dt=None, seq=None):
@@ -66,9 +73,34 @@ class EcritureService:
     @classmethod
     @transaction.atomic
     def creer_ecriture(cls, reference, date_ecriture, libelle, journal, lignes,
-                       exercice=None, piece=None, validee=True, user=None):
+                       exercice=None, piece=None, validee=True, user=None,
+                       entreprise_id=None, source_system="", source_type="",
+                       source_id="", source_reference="", idempotency_key=None,
+                       metadata=None, reversal_of=None):
+        if isinstance(date_ecriture, datetime):
+            date_ecriture = date_ecriture.date()
+        elif isinstance(date_ecriture, str):
+            parsed_date = parse_date(date_ecriture)
+            if parsed_date is None:
+                raise ValidationError(f"Date d'écriture invalide : {date_ecriture}")
+            date_ecriture = parsed_date
+
+        if entreprise_id is None:
+            entreprise_id = (
+                getattr(exercice, "entreprise_id", None)
+                or getattr(journal, "entreprise_id", "")
+                or ""
+            )
+        if idempotency_key:
+            existante = EcritureComptable.objects.filter(
+                entreprise_id=entreprise_id or "",
+                idempotency_key=idempotency_key,
+            ).first()
+            if existante:
+                return existante
+
         if exercice is None:
-            exercice = cls.get_exercice(date_ecriture)
+            exercice = cls.get_exercice(date_ecriture, entreprise_id=entreprise_id)
         # get_exercice rend None quand aucun exercice ouvert ne couvre la
         # date. L'ecriture partait alors avec exercice=None et l'echec
         # remontait en IntegrityError depuis la base, apres qu'une
@@ -80,6 +112,19 @@ class EcritureService:
                 f"{date_ecriture}. Ouvrez un exercice avant d'enregistrer "
                 "des ecritures."
             )
+        if exercice.cloture:
+            raise ValidationError(f"L'exercice {exercice.code} est clôturé.")
+        date_debut = parse_date(exercice.date_debut) if isinstance(exercice.date_debut, str) else exercice.date_debut
+        date_fin = parse_date(exercice.date_fin) if isinstance(exercice.date_fin, str) else exercice.date_fin
+        if not (date_debut <= date_ecriture <= date_fin):
+            raise ValidationError(
+                f"La date {date_ecriture} est hors de l'exercice {exercice.code} "
+                f"({date_debut} → {date_fin})."
+            )
+        if (exercice.entreprise_id or "") != (entreprise_id or ""):
+            raise ValidationError("L'exercice n'appartient pas à la même entreprise que l'écriture.")
+        if (journal.entreprise_id or "") != (entreprise_id or ""):
+            raise ValidationError("Le journal n'appartient pas à la même entreprise que l'écriture.")
 
         # Une ecriture doit etre equilibree : c'est la regle fondatrice de
         # la partie double. Elle etait exposee par est_equilibree mais
@@ -105,11 +150,32 @@ class EcritureService:
         # la contrainte NOT NULL, bien apres le point ou l'on aurait pu
         # expliquer le probleme. On nomme le compte manquant.
         for position, ligne in enumerate(lignes, start=1):
-            if ligne.get("compte") is None:
+            debit = Decimal(str(ligne.get("debit", 0) or 0))
+            credit = Decimal(str(ligne.get("credit", 0) or 0))
+            if debit < 0 or credit < 0:
+                raise ValidationError(f"Ligne {position} : les montants doivent être positifs.")
+            if debit > 0 and credit > 0:
+                raise ValidationError(
+                    f"Ligne {position} : une ligne ne peut pas porter débit et crédit."
+                )
+            if debit == 0 and credit == 0:
+                raise ValidationError(
+                    f"Ligne {position} : un débit ou un crédit est obligatoire."
+                )
+            compte = ligne.get("compte")
+            if compte is None:
                 raise ValidationError(
                     f"Ligne {position} de l'ecriture « {libelle} » : compte "
                     "comptable introuvable. Verifiez que le code existe et "
                     "qu'il est actif au plan comptable."
+                )
+            if (compte.entreprise_id or "") != (entreprise_id or ""):
+                raise ValidationError(
+                    f"Ligne {position} : le compte {compte.code} appartient à une autre entreprise."
+                )
+            if not compte.est_mouvement:
+                raise ValidationError(
+                    f"Ligne {position} : le compte {compte.code} est un compte de regroupement non mouvementable."
                 )
 
         ecriture = EcritureComptable.objects.create(
@@ -119,20 +185,40 @@ class EcritureService:
             journal=journal,
             piece=piece,
             exercice=exercice,
-            validee=validee,
+            validee=False,
             created_by=user.username if hasattr(user, "username") and user else str(user or ""),
+            validated_by=None,
+            date_validation=None,
+            entreprise_id=entreprise_id or "",
+            source_system=source_system or "",
+            source_type=source_type or "",
+            source_id=str(source_id or ""),
+            source_reference=source_reference or "",
+            idempotency_key=idempotency_key or None,
+            metadata=metadata or {},
+            reversal_of=reversal_of,
         )
 
         for ligne in lignes:
-            LigneEcritureComptable.objects.create(
+            ligne_obj = LigneEcritureComptable.objects.create(
                 ecriture=ecriture,
                 compte=ligne["compte"],
                 debit=ligne.get("debit", Decimal("0.00")),
                 credit=ligne.get("credit", Decimal("0.00")),
                 libelle=ligne.get("libelle", libelle),
             )
+            dimensions = ligne.get("dimensions") or {}
+            if dimensions:
+                from .analytique_service import AnalytiqueService
+                AnalytiqueService.affecter_ligne(ligne_obj, dimensions)
 
         if validee:
+            ecriture.validee = True
+            ecriture.date_validation = timezone.now()
+            ecriture.validated_by = (
+                user.username if hasattr(user, "username") and user else str(user or "")
+            )
+            ecriture.save(update_fields=["validee", "date_validation", "validated_by"])
             ecriture_validee.send(
                 sender=EcritureService,
                 instance=ecriture,
@@ -147,206 +233,287 @@ class EcritureService:
     @classmethod
     @transaction.atomic
     def creer_ecriture_vente(cls, compte_caisse_code, montant, libelle,
-                             compte_produit_code, user=None):
-        journal = cls.get_or_create_journal("VN", "Ventes", "VENTES")
-        compte_caisse = cls.get_compte(compte_caisse_code)
-        compte_produit = cls.get_compte(compte_produit_code)
+                             compte_produit_code, user=None, entreprise_id="", piece=None,
+                             source_system="", source_type="", source_id="",
+                             idempotency_key=None):
+        journal = cls.get_or_create_journal("VN", "Ventes", "VENTES", entreprise_id)
+        compte_caisse = cls.get_compte(compte_caisse_code, entreprise_id)
+        compte_produit = cls.get_compte(compte_produit_code, entreprise_id)
         ref = cls.generer_reference("VN")
         return cls.creer_ecriture(ref, date.today(), libelle, journal, [
             {"compte": compte_caisse, "debit": montant, "libelle": "Encaissement vente"},
             {"compte": compte_produit, "credit": montant, "libelle": libelle},
-        ], user=user)
+        ], user=user, piece=piece, entreprise_id=entreprise_id,
+           source_system=source_system, source_type=source_type,
+           source_id=source_id, idempotency_key=idempotency_key)
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_facture_vente(cls, montant_ttc, montant_tva, libelle,
-                                     compte_client_code, compte_produit_code,
-                                     compte_tva_code=None, user=None):
-        journal = cls.get_or_create_journal("VN", "Ventes", "VENTES")
-        cc = cls.get_compte(compte_client_code)
-        cp = cls.get_compte(compte_produit_code)
+    def creer_ecriture_facture_vente(
+        cls, montant_ttc, montant_tva, libelle,
+        compte_client_code, compte_produit_code,
+        compte_tva_code=None, user=None, entreprise_id="",
+        date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("VN", "Ventes", "VENTES", entreprise_id)
+        cc = cls.get_compte(compte_client_code, entreprise_id)
+        cp = cls.get_compte(compte_produit_code, entreprise_id)
         ref = cls.generer_reference("FV")
+        montant_produit = montant_ttc - montant_tva if compte_tva_code else montant_ttc
         lignes = [
             {"compte": cc, "debit": montant_ttc, "libelle": libelle},
-            {"compte": cp, "credit": montant_ttc - montant_tva, "libelle": libelle},
+            {"compte": cp, "credit": montant_produit, "libelle": libelle},
         ]
         if montant_tva > 0 and compte_tva_code:
             lignes.append({
-                "compte": cls.get_compte(compte_tva_code),
+                "compte": cls.get_compte(compte_tva_code, entreprise_id),
                 "credit": montant_tva, "libelle": f"TVA {libelle}",
             })
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, lignes, user=user)
+        return cls.creer_ecriture(
+            ref, date_operation, libelle, journal, lignes,
+            user=user, entreprise_id=entreprise_id, **trace
+        )
 
     # ─── Achats / Fournisseurs ────────────────────────────────
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_achat(cls, montant_ttc, montant_tva, montant_ht, libelle,
-                             compte_charge_code, compte_fournisseur_code,
-                             compte_tva_code=None, user=None):
-        journal = cls.get_or_create_journal("AC", "Achats", "ACHATS")
-        cch = cls.get_compte(compte_charge_code)
-        cf = cls.get_compte(compte_fournisseur_code)
+    def creer_ecriture_achat(
+        cls, montant_ttc, montant_tva, montant_ht, libelle,
+        compte_charge_code, compte_fournisseur_code,
+        compte_tva_code=None, user=None, entreprise_id="",
+        date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("AC", "Achats", "ACHATS", entreprise_id)
+        cch = cls.get_compte(compte_charge_code, entreprise_id)
+        cf = cls.get_compte(compte_fournisseur_code, entreprise_id)
         ref = cls.generer_reference("AC")
+        montant_charge = montant_ht if compte_tva_code else montant_ttc
         lignes = [
-            {"compte": cch, "debit": montant_ht, "libelle": libelle},
+            {"compte": cch, "debit": montant_charge, "libelle": libelle},
             {"compte": cf, "credit": montant_ttc, "libelle": libelle},
         ]
         if montant_tva > 0 and compte_tva_code:
             lignes.append({
-                "compte": cls.get_compte(compte_tva_code),
+                "compte": cls.get_compte(compte_tva_code, entreprise_id),
                 "debit": montant_tva, "libelle": f"TVA {libelle}",
             })
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, lignes, user=user)
+        return cls.creer_ecriture(
+            ref, date_operation, libelle, journal, lignes,
+            user=user, entreprise_id=entreprise_id, **trace
+        )
 
     @classmethod
     @transaction.atomic
     def creer_ecriture_charge(cls, compte_caisse_code, montant, libelle,
-                              compte_charge_code, date_operation=None, user=None):
+                              compte_charge_code, date_operation=None, user=None,
+                              entreprise_id="", piece=None, source_system="",
+                              source_type="", source_id="", idempotency_key=None):
         if date_operation is None:
             date_operation = date.today()
-        journal = cls._journal_paiement(compte_caisse_code)
-        compte_caisse = cls.get_compte(compte_caisse_code)
-        cc = cls.get_compte(compte_charge_code) or cls.get_compte("658")
+        journal = cls._journal_paiement(compte_caisse_code, entreprise_id)
+        compte_caisse = cls.get_compte(compte_caisse_code, entreprise_id)
+        cc = cls.get_compte(compte_charge_code, entreprise_id) or cls.get_compte("658", entreprise_id)
         now = datetime.now()
         ref = cls.generer_reference("CH", now)
         return cls.creer_ecriture(ref, date_operation, libelle, journal, [
             {"compte": cc, "debit": montant, "libelle": libelle},
             {"compte": compte_caisse, "credit": montant, "libelle": f"Paiement {libelle}"},
-        ], piece=f"DEP-{date_operation.strftime('%Y%m%d')}", user=user)
+        ], piece=piece or f"DEP-{date_operation.strftime('%Y%m%d')}", user=user,
+           entreprise_id=entreprise_id, source_system=source_system,
+           source_type=source_type, source_id=source_id,
+           idempotency_key=idempotency_key)
 
     # ─── Trésorerie ───────────────────────────────────────────
 
     @classmethod
-    def _journal_paiement(cls, compte_caisse_code):
+    def _journal_paiement(cls, compte_caisse_code, entreprise_id=""):
         if compte_caisse_code and str(compte_caisse_code).startswith("52"):
-            return cls.get_or_create_journal("BQ", "Banque", "BANQUE")
-        return cls.get_or_create_journal("CS", "Caisse", "CAISSE")
+            return cls.get_or_create_journal("BQ", "Banque", "BANQUE", entreprise_id)
+        return cls.get_or_create_journal("CS", "Caisse", "CAISSE", entreprise_id)
 
     @classmethod
     @transaction.atomic
     def creer_ecriture_transfert(cls, compte_source_code, compte_dest_code,
-                                 montant, libelle, user=None):
-        journal = cls.get_or_create_journal("TR", "Transferts", "CAISSE")
+                                 montant, libelle, user=None, entreprise_id="", piece=None,
+                                 source_system="", source_type="", source_id="",
+                                 idempotency_key=None):
+        journal = cls.get_or_create_journal("TR", "Transferts", "BANQUE", entreprise_id)
         ref = cls.generer_reference("TRF")
         return cls.creer_ecriture(ref, date.today(), libelle, journal, [
-            {"compte": cls.get_compte(compte_dest_code), "debit": montant,
+            {"compte": cls.get_compte(compte_dest_code, entreprise_id), "debit": montant,
              "libelle": f"Transfert reçu"},
-            {"compte": cls.get_compte(compte_source_code), "credit": montant,
+            {"compte": cls.get_compte(compte_source_code, entreprise_id), "credit": montant,
              "libelle": f"Transfert émis"},
-        ], user=user)
+        ], user=user, piece=piece, entreprise_id=entreprise_id,
+           source_system=source_system, source_type=source_type,
+           source_id=source_id, idempotency_key=idempotency_key)
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_depot_banque(cls, compte_caisse_code, montant, libelle, user=None):
-        journal = cls.get_or_create_journal("BQ", "Banque", "BANQUE")
+    def creer_ecriture_depot_banque(
+        cls, compte_caisse_code, montant, libelle, user=None,
+        entreprise_id="", date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("BQ", "Banque", "BANQUE", entreprise_id)
         ref = cls.generer_reference("DB")
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, [
-            {"compte": cls.get_compte("521"), "debit": montant, "libelle": "Dépôt banque"},
-            {"compte": cls.get_compte(compte_caisse_code), "credit": montant,
-             "libelle": f"Dépôt depuis caisse"},
-        ], user=user)
+        return cls.creer_ecriture(ref, date_operation, libelle, journal, [
+            {"compte": cls.get_compte("521", entreprise_id), "debit": montant, "libelle": "Dépôt banque"},
+            {"compte": cls.get_compte(compte_caisse_code, entreprise_id), "credit": montant,
+             "libelle": "Dépôt depuis caisse"},
+        ], user=user, entreprise_id=entreprise_id, **trace)
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_retrait_banque(cls, compte_caisse_code, montant, libelle, user=None):
-        journal = cls.get_or_create_journal("BQ", "Banque", "BANQUE")
+    def creer_ecriture_retrait_banque(
+        cls, compte_caisse_code, montant, libelle, user=None,
+        entreprise_id="", date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("BQ", "Banque", "BANQUE", entreprise_id)
         ref = cls.generer_reference("RB")
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, [
-            {"compte": cls.get_compte(compte_caisse_code), "debit": montant,
-             "libelle": f"Retrait banque vers caisse"},
-            {"compte": cls.get_compte("521"), "credit": montant, "libelle": "Retrait banque"},
-        ], user=user)
+        return cls.creer_ecriture(ref, date_operation, libelle, journal, [
+            {"compte": cls.get_compte(compte_caisse_code, entreprise_id), "debit": montant,
+             "libelle": "Retrait banque vers caisse"},
+            {"compte": cls.get_compte("521", entreprise_id), "credit": montant, "libelle": "Retrait banque"},
+        ], user=user, entreprise_id=entreprise_id, **trace)
 
     # ─── Paie ─────────────────────────────────────────────────
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_salaire(cls, montant_brut, montant_net, montant_cnps,
-                               montant_impot, montant_avances, libelle,
-                               compte_caisse_code=None, user=None):
-        journal = cls.get_or_create_journal("PA", "Paie", "CAISSE")
-        caisse = cls.get_compte(compte_caisse_code) if compte_caisse_code else cls.get_compte("571")
+    def creer_ecriture_salaire(
+        cls, montant_brut, montant_net, montant_cnps,
+        montant_impot, montant_avances, libelle,
+        compte_caisse_code=None, user=None, entreprise_id="",
+        date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("PA", "Paie", "PAIE", entreprise_id)
+        caisse = cls.get_compte(
+            compte_caisse_code or "571", entreprise_id
+        )
         ref = cls.generer_reference("PAIE")
         lignes = [
-            {"compte": cls.get_compte("661"), "debit": montant_brut, "libelle": libelle},
+            {"compte": cls.get_compte("661", entreprise_id), "debit": montant_brut, "libelle": libelle},
             {"compte": caisse, "credit": montant_net, "libelle": "Net à payer"},
         ]
         if montant_cnps > 0:
-            lignes.append({"compte": cls.get_compte("431"), "credit": montant_cnps, "libelle": "CNPS"})
+            lignes.append({"compte": cls.get_compte("431", entreprise_id), "credit": montant_cnps, "libelle": "Cotisations sociales"})
         if montant_impot > 0:
-            lignes.append({"compte": cls.get_compte("447"), "credit": montant_impot, "libelle": "IRPP"})
+            lignes.append({"compte": cls.get_compte("447", entreprise_id), "credit": montant_impot, "libelle": "Impôts retenus à la source"})
         if montant_avances > 0:
-            lignes.append({"compte": cls.get_compte("425"), "debit": montant_avances, "libelle": "Avances déduites"})
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, lignes, user=user)
+            lignes.append({"compte": cls.get_compte("425", entreprise_id), "credit": montant_avances, "libelle": "Avances récupérées"})
+        return cls.creer_ecriture(
+            ref, date_operation, libelle, journal, lignes,
+            user=user, entreprise_id=entreprise_id, **trace
+        )
 
     # ─── Stock ────────────────────────────────────────────────
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_entree_stock(cls, montant, libelle, compte_stock="31",
-                                    compte_variation="6031", user=None):
-        journal = cls.get_or_create_journal("ST", "Stock", "ACHATS")
+    def creer_ecriture_entree_stock(
+        cls, montant, libelle, compte_stock="31",
+        compte_variation="6031", user=None, entreprise_id="",
+        date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("ST", "Stock", "STOCK", entreprise_id)
         ref = cls.generer_reference("ES")
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, [
-            {"compte": cls.get_compte(compte_stock), "debit": montant, "libelle": libelle},
-            {"compte": cls.get_compte(compte_variation), "credit": montant, "libelle": libelle},
-        ], user=user)
+        return cls.creer_ecriture(ref, date_operation, libelle, journal, [
+            {"compte": cls.get_compte(compte_stock, entreprise_id), "debit": montant, "libelle": libelle},
+            {"compte": cls.get_compte(compte_variation, entreprise_id), "credit": montant, "libelle": libelle},
+        ], user=user, entreprise_id=entreprise_id, **trace)
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_sortie_stock(cls, montant, libelle, compte_charge="6032",
-                                    compte_stock="31", user=None):
-        journal = cls.get_or_create_journal("ST", "Stock", "ACHATS")
+    def creer_ecriture_sortie_stock(
+        cls, montant, libelle, compte_charge="6031",
+        compte_stock="31", user=None, entreprise_id="",
+        date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("ST", "Stock", "STOCK", entreprise_id)
         ref = cls.generer_reference("SS")
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, [
-            {"compte": cls.get_compte(compte_charge), "debit": montant, "libelle": libelle},
-            {"compte": cls.get_compte(compte_stock), "credit": montant, "libelle": libelle},
-        ], user=user)
+        return cls.creer_ecriture(ref, date_operation, libelle, journal, [
+            {"compte": cls.get_compte(compte_charge, entreprise_id), "debit": montant, "libelle": libelle},
+            {"compte": cls.get_compte(compte_stock, entreprise_id), "credit": montant, "libelle": libelle},
+        ], user=user, entreprise_id=entreprise_id, **trace)
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_inventaire(cls, ecart, libelle, compte_stock="31",
-                                  compte_charge="658", compte_produit="758", user=None):
-        journal = cls.get_or_create_journal("ST", "Stock", "ACHATS")
+    def creer_ecriture_inventaire(
+        cls, ecart, libelle, compte_stock="31",
+        compte_charge="658", compte_produit="758", user=None,
+        entreprise_id="", date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("ST", "Stock", "STOCK", entreprise_id)
         ref = cls.generer_reference("INV")
         if ecart >= 0:
             lignes = [
-                {"compte": cls.get_compte(compte_stock), "debit": ecart, "libelle": libelle},
-                {"compte": cls.get_compte(compte_produit), "credit": ecart, "libelle": libelle},
+                {"compte": cls.get_compte(compte_stock, entreprise_id), "debit": ecart, "libelle": libelle},
+                {"compte": cls.get_compte(compte_produit, entreprise_id), "credit": ecart, "libelle": libelle},
             ]
         else:
             e = -ecart
             lignes = [
-                {"compte": cls.get_compte(compte_charge), "debit": e, "libelle": libelle},
-                {"compte": cls.get_compte(compte_stock), "credit": e, "libelle": libelle},
+                {"compte": cls.get_compte(compte_charge, entreprise_id), "debit": e, "libelle": libelle},
+                {"compte": cls.get_compte(compte_stock, entreprise_id), "credit": e, "libelle": libelle},
             ]
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, lignes, user=user)
+        return cls.creer_ecriture(
+            ref, date_operation, libelle, journal, lignes,
+            user=user, entreprise_id=entreprise_id, **trace
+        )
 
     # ─── Immobilisations ──────────────────────────────────────
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_acquisition_immo(cls, montant, libelle, compte_immo_code,
-                                        compte_tiers_code=None, compte_caisse_code=None, user=None):
-        journal = cls.get_or_create_journal("INV", "Investissements", "ACHATS")
+    def creer_ecriture_acquisition_immo(
+        cls, montant, libelle, compte_immo_code,
+        compte_tiers_code=None, compte_caisse_code=None, user=None,
+        entreprise_id="", date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("INV", "Investissements", "IMMO", entreprise_id)
         ref = cls.generer_reference("ACQ")
         lignes = [
-            {"compte": cls.get_compte(compte_immo_code), "debit": montant, "libelle": libelle},
+            {"compte": cls.get_compte(compte_immo_code, entreprise_id), "debit": montant, "libelle": libelle},
         ]
         if compte_caisse_code:
-            lignes.append({"compte": cls.get_compte(compte_caisse_code), "credit": montant, "libelle": libelle})
+            lignes.append({
+                "compte": cls.get_compte(compte_caisse_code, entreprise_id),
+                "credit": montant,
+                "libelle": libelle,
+            })
         elif compte_tiers_code:
-            lignes.append({"compte": cls.get_compte(compte_tiers_code), "credit": montant, "libelle": libelle})
+            lignes.append({
+                "compte": cls.get_compte(compte_tiers_code, entreprise_id),
+                "credit": montant,
+                "libelle": libelle,
+            })
         else:
-            lignes.append({"compte": cls.get_compte("404"), "credit": montant, "libelle": libelle})
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, lignes, user=user)
+            lignes.append({
+                "compte": cls.get_compte("4812", entreprise_id),
+                "credit": montant,
+                "libelle": libelle,
+            })
+        return cls.creer_ecriture(
+            ref, date_operation, libelle, journal, lignes,
+            user=user, entreprise_id=entreprise_id, **trace
+        )
 
     @classmethod
     @transaction.atomic
     def creer_ecriture_amortissement(cls, plan, user=None):
         immobilisation = plan.immobilisation
-        journal = cls.get_or_create_journal("OD", "Opérations Diverses", "OD")
+        entreprise_id = immobilisation.entreprise_id or ""
+        journal = cls.get_or_create_journal("OD", "Opérations Diverses", "OD", entreprise_id)
         ref = f"AMORT-{immobilisation.code}-{plan.periode.strftime('%Y%m')}"
         libelle = f"Amortissement {immobilisation.libelle} - {plan.periode.strftime('%m/%Y')}"
         ecriture = cls.creer_ecriture(ref, plan.periode, libelle, journal, [
@@ -354,7 +521,8 @@ class EcritureService:
              "libelle": f"Dotation {immobilisation.libelle}"},
             {"compte": immobilisation.compte_amortissement, "credit": plan.montant,
              "libelle": f"Amortissement {immobilisation.libelle}"},
-        ], exercice=cls.get_exercice(plan.periode), user=user)
+        ], exercice=cls.get_exercice(plan.periode, entreprise_id), user=user,
+           entreprise_id=entreprise_id)
         plan.ecriture_generee = True
         plan.ecriture_reference = ref
         plan.save(update_fields=["ecriture_generee", "ecriture_reference"])
@@ -364,35 +532,126 @@ class EcritureService:
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_regularisation(cls, montant, libelle, compte_debit_code,
-                                      compte_credit_code, user=None):
-        journal = cls.get_or_create_journal("OD", "Opérations Diverses", "OD")
+    def creer_ecriture_regularisation(
+        cls, montant, libelle, compte_debit_code,
+        compte_credit_code, user=None, entreprise_id="",
+        date_operation=None, **trace,
+    ):
+        date_operation = date_operation or date.today()
+        journal = cls.get_or_create_journal("OD", "Opérations Diverses", "OD", entreprise_id)
         ref = cls.generer_reference("RG")
-        return cls.creer_ecriture(ref, date.today(), libelle, journal, [
-            {"compte": cls.get_compte(compte_debit_code), "debit": montant, "libelle": libelle},
-            {"compte": cls.get_compte(compte_credit_code), "credit": montant, "libelle": libelle},
-        ], user=user)
+        return cls.creer_ecriture(ref, date_operation, libelle, journal, [
+            {"compte": cls.get_compte(compte_debit_code, entreprise_id), "debit": montant, "libelle": libelle},
+            {"compte": cls.get_compte(compte_credit_code, entreprise_id), "credit": montant, "libelle": libelle},
+        ], user=user, entreprise_id=entreprise_id, **trace)
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture_cloture_exercice(cls, exercice, resultat, user=None):
-        journal = cls.get_or_create_journal("CL", "Clôture", "OD")
-        ref = f"RES-{exercice.code}"
-        libelle = f"Affectation résultat exercice {exercice.code}"
-        if resultat >= 0:
-            lignes = [
-                {"compte": cls.get_compte("129"), "debit": resultat,
-                 "libelle": f"Bénéfice {exercice.code}"},
-                {"compte": cls.get_compte("101"), "credit": resultat,
-                 "libelle": f"Capital - report bénéfice {exercice.code}"},
-            ]
-        else:
-            r = abs(resultat)
-            lignes = [
-                {"compte": cls.get_compte("101"), "debit": r,
-                 "libelle": f"Imputation perte {exercice.code}"},
-                {"compte": cls.get_compte("129"), "credit": r,
-                 "libelle": f"Perte {exercice.code}"},
-            ]
-        return cls.creer_ecriture(ref, exercice.date_fin, libelle, journal, lignes,
-                                  exercice=exercice, user=user)
+    def creer_ecriture_cloture_exercice(cls, exercice, user=None):
+        """Solde les comptes de résultat vers 131 (bénéfice) ou 139 (perte)."""
+        from django.db.models import Sum
+        from ..models import LigneEcritureComptable, CategorieCompte
+
+        entreprise_id = exercice.entreprise_id or ""
+        journal = cls.get_or_create_journal("CL", "Clôture", "OD", entreprise_id)
+
+        lignes_qs = LigneEcritureComptable.objects.filter(
+            ecriture__exercice=exercice,
+            ecriture__validee=True,
+            compte__categorie=CategorieCompte.RESULTAT.value,
+        ).exclude(
+            ecriture__source_type="fiscal_closure",
+        ).exclude(
+            ecriture__reversal_of__source_type="fiscal_closure",
+        )
+
+        aggregats = lignes_qs.values(
+            "compte_id", "compte__code", "compte__libelle"
+        ).annotate(
+            debit_total=Sum("debit"),
+            credit_total=Sum("credit"),
+        )
+
+        lignes = []
+        total_debit = Decimal("0.00")
+        total_credit = Decimal("0.00")
+        charges_hao = {"81", "83", "85", "87", "89"}
+        produits_hao = {"82", "84", "86", "88"}
+
+        for item in aggregats:
+            code = item["compte__code"]
+            compte = cls.get_compte(item["compte_id"], entreprise_id)
+            debit = item["debit_total"] or Decimal("0.00")
+            credit = item["credit_total"] or Decimal("0.00")
+            prefix = code[:2]
+
+            if code.startswith("6") or prefix in charges_hao:
+                solde = debit - credit
+                if solde > 0:
+                    lignes.append({
+                        "compte": compte,
+                        "credit": solde,
+                        "libelle": f"Clôture {code} - {item['compte__libelle']}",
+                    })
+                    total_credit += solde
+                elif solde < 0:
+                    montant = -solde
+                    lignes.append({
+                        "compte": compte,
+                        "debit": montant,
+                        "libelle": f"Clôture {code} - {item['compte__libelle']}",
+                    })
+                    total_debit += montant
+            elif code.startswith("7") or prefix in produits_hao:
+                solde = credit - debit
+                if solde > 0:
+                    lignes.append({
+                        "compte": compte,
+                        "debit": solde,
+                        "libelle": f"Clôture {code} - {item['compte__libelle']}",
+                    })
+                    total_debit += solde
+                elif solde < 0:
+                    montant = -solde
+                    lignes.append({
+                        "compte": compte,
+                        "credit": montant,
+                        "libelle": f"Clôture {code} - {item['compte__libelle']}",
+                    })
+                    total_credit += montant
+
+        if not lignes:
+            return None
+
+        resultat = total_debit - total_credit
+        if resultat > 0:
+            compte_resultat = cls.get_compte("131", entreprise_id)
+            lignes.append({
+                "compte": compte_resultat,
+                "credit": resultat,
+                "libelle": f"Résultat bénéficiaire {exercice.code}",
+            })
+        elif resultat < 0:
+            compte_resultat = cls.get_compte("139", entreprise_id)
+            lignes.append({
+                "compte": compte_resultat,
+                "debit": -resultat,
+                "libelle": f"Résultat déficitaire {exercice.code}",
+            })
+
+        ref = cls.generer_reference(f"RES-{exercice.code}")
+        return cls.creer_ecriture(
+            ref,
+            exercice.date_fin,
+            f"Clôture des comptes de résultat {exercice.code}",
+            journal,
+            lignes,
+            exercice=exercice,
+            user=user,
+            entreprise_id=entreprise_id,
+            source_system="comptabilite_ohada",
+            source_type="fiscal_closure",
+            source_id=str(exercice.pk),
+            source_reference=exercice.code,
+            metadata={"resultat_net": str(resultat)},
+        )
