@@ -2,13 +2,20 @@ import json
 from decimal import Decimal
 
 from django.core.serializers.json import DjangoJSONEncoder
+from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db import connection
+from django.db.models import F
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
-from ..models import EvenementMetier, RegleEvenementComptable
+from ..models import (
+    CompteComptable, EcritureComptable, EvenementMetier, JournalComptable,
+    RegleEvenementComptable,
+)
 from ..rules import moteur
 from .ecriture_service import EcritureService
+from ..sqlite_busy import retry_sqlite_busy
 
 
 JOURNAUX_PAR_CODE = {
@@ -25,12 +32,20 @@ JOURNAUX_PAR_CODE = {
 }
 
 
+class IdempotencyConflict(ValidationError):
+    """Une clé déjà reçue ne peut pas désigner une autre enveloppe."""
+
+
 class EvenementService:
     """Inbox idempotente transformant un événement métier en écriture comptable."""
 
     @staticmethod
     def _payload_stockable(payload):
         return json.loads(json.dumps(payload or {}, cls=DjangoJSONEncoder))
+
+    @staticmethod
+    def _envelope_canonique(envelope):
+        return json.dumps(envelope, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
     @staticmethod
     def _contexte_regle(payload):
@@ -96,25 +111,45 @@ class EvenementService:
                     resultat.journal_code,
                     (resultat.journal_code, "OD"),
                 )
-                journal = EcritureService.get_or_create_journal(
-                    resultat.journal_code,
-                    journal_libelle,
-                    journal_type,
-                    entreprise_id,
-                )
+                explicite = regle_mapping.code_regle == "ECRITURE_GENERIQUE"
+                if explicite:
+                    journal = JournalComptable.objects.filter(
+                        entreprise_id=entreprise_id, code=resultat.journal_code,
+                        actif=True,
+                    ).first()
+                    if journal is None:
+                        raise ValidationError("Journal actif absent de cette entreprise.")
+                else:
+                    journal = EcritureService.get_or_create_journal(
+                        resultat.journal_code, journal_libelle, journal_type, entreprise_id,
+                    )
 
-                dimensions_globales = contexte.get("dimensions") or {}
+                dimensions_globales = {
+                    str(axis).upper(): value
+                    for axis, value in (contexte.get("dimensions") or {}).items()
+                }
                 lignes = []
                 for ligne in resultat.lignes:
+                    # Une ligne explicite fournit un CODE, jamais un PK de secours.
+                    compte = (
+                        CompteComptable.objects.filter(
+                            entreprise_id=entreprise_id, code=ligne.compte_code, actif=True,
+                        ).first()
+                        if explicite else EcritureService.get_compte(ligne.compte_code, entreprise_id)
+                    )
                     lignes.append({
-                        "compte": EcritureService.get_compte(
-                            ligne.compte_code, entreprise_id
-                        ),
+                        "compte": compte,
                         "debit": ligne.debit,
                         "credit": ligne.credit,
-                        "libelle": ligne.libelle or resultat.libelle,
-                        "dimensions": ligne.dimensions or dimensions_globales,
+                        "libelle": (ligne.libelle or resultat.libelle)[:200],
+                        "dimensions": {**dimensions_globales, **ligne.dimensions},
                     })
+
+                if EcritureComptable.objects.filter(
+                    entreprise_id=entreprise_id,
+                    idempotency_key=evenement.idempotency_key,
+                ).exists():
+                    raise ValidationError("Cette clé est déjà utilisée par une autre écriture.")
 
                 ecriture = EcritureService.creer_ecriture(
                     reference=resultat.reference,
@@ -140,6 +175,15 @@ class EvenementService:
                     },
                 )
 
+                # A direct writer may have won the ledger key after our
+                # pre-check. Never claim its entry as this inbox's result.
+                if (
+                    ecriture.metadata.get("event_id") != evenement.pk
+                    or ecriture.source_system != evenement.source_system
+                    or ecriture.source_id != evenement.source_id
+                ):
+                    raise ValidationError("Cette clé est déjà utilisée par une autre écriture.")
+
                 evenement.ecriture = ecriture
                 evenement.statut = "TRAITE"
                 evenement.erreur = ""
@@ -162,6 +206,8 @@ class EvenementService:
             return evenement
 
     @classmethod
+    @retry_sqlite_busy
+    @transaction.atomic
     def recevoir(
         cls,
         *,
@@ -175,25 +221,36 @@ class EvenementService:
         user=None,
     ):
         entreprise_id = entreprise_id or ""
-        evenement, created = EvenementMetier.objects.get_or_create(
+        envelope = {
+            "type_evenement": type_evenement,
+            "source_system": source_system,
+            "source_type": source_type or "",
+            "source_id": str(source_id or ""),
+            "payload": cls._payload_stockable(payload),
+        }
+        cls._reserver_ecriture_sqlite()
+        # Le reçu et son traitement sont une seule transaction ; un appel
+        # concurrent ne peut pas observer une inbox RECU encore incomplète.
+        evenement, created = EvenementMetier.objects.select_for_update().get_or_create(
             entreprise_id=entreprise_id,
             idempotency_key=idempotency_key,
-            defaults={
-                "type_evenement": type_evenement,
-                "source_system": source_system,
-                "source_type": source_type or "",
-                "source_id": str(source_id or ""),
-                "payload": cls._payload_stockable(payload),
-            },
+            defaults=envelope,
         )
         if not created:
+            stored = {field: getattr(evenement, field) for field in envelope}
+            if cls._envelope_canonique(stored) != cls._envelope_canonique(envelope):
+                raise IdempotencyConflict("Cette clé désigne un autre événement.")
             return evenement, False
 
         return cls._traiter(evenement, user=user), True
 
     @classmethod
+    @retry_sqlite_busy
+    @transaction.atomic
     def retraiter(cls, evenement, user=None):
         """Rejoue explicitement un événement IGNORE/ERREUR après correction."""
+        cls._reserver_ecriture_sqlite()
+        evenement = EvenementMetier.objects.select_for_update().get(pk=evenement.pk)
         if evenement.statut == "TRAITE":
             return evenement
         evenement.erreur = ""
@@ -203,3 +260,11 @@ class EvenementService:
             update_fields=["erreur", "statut", "processed_at"]
         )
         return cls._traiter(evenement, user=user)
+
+    @staticmethod
+    def _reserver_ecriture_sqlite():
+        if connection.vendor == "sqlite":
+            # BEGIN DEFERRED + read + write can deadlock two SQLite callers.
+            # Acquire the write reservation BEFORE any inbox read. This
+            # no-op changes no data and works across threads/processes.
+            EvenementMetier.objects.filter(pk=0).update(statut=F("statut"))

@@ -5,6 +5,8 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
 from .models import ApplicationClienteComptable
+from .sqlite_busy import AccountingBusy, retry_sqlite_busy
+from .api.exceptions import AccountingServiceUnavailable
 
 
 @dataclass
@@ -52,7 +54,17 @@ class AccountingAPIKeyAuthentication(BaseAuthentication):
 
     keyword = "ApiKey"
 
+    def authenticate_header(self, request):
+        return self.keyword
+
     def authenticate(self, request):
+        try:
+            return self._authenticate(request)
+        except AccountingBusy as exc:
+            raise AccountingServiceUnavailable(wait=1) from exc
+
+    @retry_sqlite_busy
+    def _authenticate(self, request):
         raw = request.headers.get("X-API-Key", "").strip()
 
         if not raw:

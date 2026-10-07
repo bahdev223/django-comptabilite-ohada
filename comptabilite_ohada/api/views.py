@@ -3,6 +3,8 @@ from rest_framework.decorators import action, api_view, permission_classes as ap
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework import serializers
+from django.conf import settings
 from ..permissions import AccountingTenantPermission
 from ..tenant import resolve_entreprise_id
 from django_filters import rest_framework as filters
@@ -24,7 +26,9 @@ from ..services.bilan_service import BilanService
 from ..services.exercice_service import ExerciceService, ValidationService
 from ..services.amortissement_service import AmortissementService
 from ..services.analytique_service import AnalytiqueService
-from ..services.evenement_service import EvenementService
+from ..services.evenement_service import EvenementService, IdempotencyConflict
+from ..sqlite_busy import AccountingBusy
+from .exceptions import AccountingServiceUnavailable, accounting_storage_operation
 from ..services.rapprochement_service import RapprochementService
 from .serializers import (
     CompteComptableSerializer, EcritureComptableSerializer,
@@ -52,6 +56,7 @@ def health_view(request):
 
 @api_view(["GET"])
 @api_permission_classes([IsAuthenticated, AccountingTenantPermission])
+@accounting_storage_operation
 def analytic_costs_view(request):
     reserved = {"date_debut", "date_fin", "format"}
     dimensions = {
@@ -63,12 +68,23 @@ def analytic_costs_view(request):
         raise DRFValidationError(
             "Fournissez au moins une dimension, par exemple PROJECT=PRJ-001."
         )
+    entreprise_id = resolve_entreprise_id(request)
+    dates = {}
+    for field in ("date_debut", "date_fin"):
+        if field in request.query_params:
+            dates[field] = serializers.DateField().run_validation(request.query_params[field])
+    if dates.get("date_debut") and dates.get("date_fin") and dates["date_debut"] > dates["date_fin"]:
+        raise DRFValidationError("La date de début doit précéder la date de fin.")
     result = AnalytiqueService.calculer_couts(
-        entreprise_id=resolve_entreprise_id(request),
+        entreprise_id=entreprise_id,
         dimensions=dimensions,
-        date_debut=request.query_params.get("date_debut"),
-        date_fin=request.query_params.get("date_fin"),
+        **dates,
     )
+    # Les montants HTTP sont des décimaux textuels, sans perte de précision.
+    for field in ("total_cost", "allocated_debit", "allocated_credit"):
+        result[field] = str(result[field])
+    devise = ConfigurationComptable.objects.filter(entreprise_id=entreprise_id).values_list("devise", flat=True).first()
+    result["currency"] = devise or getattr(settings, "COMPTABILITE_OHADA", {}).get("DEVISE_PAR_DEFAUT", "FCFA")
     return Response(result)
 
 
@@ -464,11 +480,13 @@ class EvenementMetierViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet
         return EvenementMetierSerializer
 
     @action(detail=True, methods=["post"])
+    @accounting_storage_operation
     def retry(self, request, pk=None):
         evenement = self.get_object()
-        evenement = EvenementService.retraiter(
-            evenement, user=request.user
-        )
+        try:
+            evenement = EvenementService.retraiter(evenement, user=request.user)
+        except AccountingBusy as exc:
+            raise AccountingServiceUnavailable(wait=1) from exc
         output = EvenementMetierSerializer(
             evenement, context={"request": request}
         )
@@ -479,20 +497,26 @@ class EvenementMetierViewSet(EntrepriseScopedViewSetMixin, viewsets.ModelViewSet
             )
         return Response(output.data, status=status.HTTP_200_OK)
 
+    @accounting_storage_operation
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        evenement, created = EvenementService.recevoir(
-            entreprise_id=self.get_entreprise_id(),
-            type_evenement=data["type_evenement"],
-            source_system=data["source_system"],
-            source_type=data.get("source_type", ""),
-            source_id=data.get("source_id", ""),
-            idempotency_key=data["idempotency_key"],
-            payload=data.get("payload") or {},
-            user=request.user,
-        )
+        try:
+            evenement, created = EvenementService.recevoir(
+                entreprise_id=self.get_entreprise_id(),
+                type_evenement=data["type_evenement"],
+                source_system=data["source_system"],
+                source_type=data.get("source_type", ""),
+                source_id=data.get("source_id", ""),
+                idempotency_key=data["idempotency_key"],
+                payload=data.get("payload") or {},
+                user=request.user,
+            )
+        except IdempotencyConflict as exc:
+            return Response({"detail": exc.messages[0]}, status=status.HTTP_409_CONFLICT)
+        except AccountingBusy as exc:
+            raise AccountingServiceUnavailable(wait=1) from exc
         output = EvenementMetierSerializer(evenement, context={"request": request})
         if evenement.statut == "ERREUR":
             return Response(output.data, status=status.HTTP_422_UNPROCESSABLE_ENTITY)

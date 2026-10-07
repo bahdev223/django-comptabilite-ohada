@@ -206,6 +206,12 @@ class RegleEvenementComptableSerializer(serializers.ModelSerializer):
 
 
 class EvenementMetierSerializer(serializers.ModelSerializer):
+    entry_id = serializers.IntegerField(source="ecriture_id", read_only=True, allow_null=True)
+    status = serializers.SerializerMethodField()
+
+    def get_status(self, obj):
+        return {"TRAITE": "recorded", "IGNORE": "ignored", "ERREUR": "error", "RECU": "received"}[obj.statut]
+
     class Meta:
         model = EvenementMetier
         fields = "__all__"
@@ -222,3 +228,8 @@ class EvenementIngestSerializer(serializers.Serializer):
     source_id = serializers.CharField(max_length=255, required=False, allow_blank=True)
     idempotency_key = serializers.CharField(max_length=255)
     payload = serializers.JSONField(required=False, default=dict)
+
+    def validate_payload(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Le contenu de l'événement doit être un objet.")
+        return value
