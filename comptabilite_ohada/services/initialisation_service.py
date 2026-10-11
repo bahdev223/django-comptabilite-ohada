@@ -16,6 +16,7 @@ class InitialisationService:
     """Initialisation du plan comptable SYSCOHADA et de la configuration."""
 
     @staticmethod
+    @transaction.atomic
     def charger_plan_comptable(force=False):
         tenant = require_tenant()
         if force:

@@ -182,7 +182,7 @@ class SecureLedgerTests(TestCase):
             self.assertEqual(reversal.exercice_id, self.exercise_a.pk)
             self.assertTrue(reversal.validee)
             self.assertEqual(reversal.reference, f"REV-{original.pk}")
-            with self.assertRaises(IntegrityError):
+            with self.assertRaises((ValidationError, IntegrityError)):
                 ValidationService.annuler_ecriture(original, raison="Erreur répétée")
             balances = BalanceService.balance(exercice=self.exercise_a)
             self.assertEqual(

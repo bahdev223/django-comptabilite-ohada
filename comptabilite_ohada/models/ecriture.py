@@ -65,9 +65,13 @@ class EcritureComptable(models.Model):
                     day = date.fromisoformat(day)
                 except ValueError as exc:
                     raise ValidationError("Date d'écriture invalide.") from exc
-            if not self.exercice.date_debut <= day <= self.exercice.date_fin:
+            # Reload typed dates from DB; freshly constructed FK instances
+            # may still contain ISO strings before Django field conversion.
+            exercice = self.exercice.__class__.objects.get(pk=self.exercice_id)
+            check_owned(exercice, tenant, what="Exercice")
+            if not exercice.date_debut <= day <= exercice.date_fin:
                 raise ValidationError("Écriture datée hors exercice.")
-            if self.exercice.cloture:
+            if exercice.cloture:
                 raise ValidationError("Une écriture ne peut pas être modifiée dans un exercice clôturé.")
 
     def save(self, *args, **kwargs):
