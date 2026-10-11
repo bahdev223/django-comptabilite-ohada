@@ -8,6 +8,7 @@ from .models import (
 from .services.journal_service import BalanceService, GrandLivreService
 from .services.bilan_service import BilanService
 from .services.dashboard_service import DashboardService
+from .tenancy import require_tenant, check_owned
 
 
 class ComptabiliteSelector:
@@ -20,21 +21,34 @@ class ComptabiliteSelector:
         self.dashboard = DashboardService()
 
     def compte_detail(self, code):
-        return CompteComptable.objects.filter(code=code).first()
+        return CompteComptable.objects.filter(
+            entreprise_id=require_tenant(), code=code,
+        ).first()
 
     def compte_enfants(self, code_prefix):
-        return CompteComptable.objects.filter(code__startswith=code_prefix, actif=True)
+        return CompteComptable.objects.filter(
+            entreprise_id=require_tenant(),
+            code__startswith=code_prefix, actif=True,
+        )
 
     def ecritures_non_validees(self):
-        return EcritureComptable.objects.filter(validee=False).order_by("-date_ecriture")
+        return EcritureComptable.objects.filter(
+            entreprise_id=require_tenant(), validee=False,
+        ).order_by("-date_ecriture")
 
     def ecritures_par_periode(self, debut, fin):
         return EcritureComptable.objects.filter(
+            entreprise_id=require_tenant(),
             date_ecriture__gte=debut, date_ecriture__lte=fin,
         ).order_by("-date_ecriture")
 
     def ecritures_par_compte(self, compte_code, exercice=None):
+        tenant = require_tenant()
+        if exercice is not None:
+            check_owned(exercice, tenant, what="Exercice")
         qs = LigneEcritureComptable.objects.filter(
+            ecriture__entreprise_id=tenant,
+            compte__entreprise_id=tenant,
             compte__code__startswith=compte_code,
             ecriture__validee=True,
         ).select_related("ecriture", "compte")
@@ -46,7 +60,11 @@ class ComptabiliteSelector:
         return qs.order_by("ecriture__date_ecriture")
 
     def immobilisations_actives(self):
-        return Immobilisation.objects.filter(statut="ACTIF")
+        return Immobilisation.objects.filter(
+            entreprise_id=require_tenant(), statut="ACTIF"
+        )
 
     def immobilisations_avec_plan(self, immo_id):
-        return Immobilisation.objects.prefetch_related("plan_amortissement").filter(id=immo_id).first()
+        return Immobilisation.objects.filter(
+            entreprise_id=require_tenant(), id=immo_id,
+        ).prefetch_related("plan_amortissement").first()

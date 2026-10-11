@@ -5,6 +5,7 @@ from django.db.models import Sum
 
 from ..models import CompteComptable, LigneEcritureComptable, ExerciceComptable
 from ..models import NatureCompte, CategorieCompte
+from ..tenancy import require_tenant, check_owned
 
 
 class BilanService:
@@ -17,6 +18,9 @@ class BilanService:
 
     @staticmethod
     def bilan(exercice=None, date_arret=None):
+        tenant = require_tenant()
+        if exercice is not None:
+            check_owned(exercice, tenant, what="Exercice")
         if date_arret is None:
             if exercice:
                 date_arret = exercice.date_fin
@@ -24,6 +28,8 @@ class BilanService:
                 date_arret = date.today()
 
         lignes = LigneEcritureComptable.objects.filter(
+            ecriture__entreprise_id=tenant,
+            compte__entreprise_id=tenant,
             ecriture__validee=True,
             ecriture__date_ecriture__lte=date_arret,
         )
@@ -65,11 +71,16 @@ class BilanService:
 
     @staticmethod
     def compte_resultat(exercice=None, date_debut=None, date_fin=None):
+        tenant = require_tenant()
+        if exercice is not None:
+            check_owned(exercice, tenant, what="Exercice")
         if exercice:
             date_debut = exercice.date_debut
             date_fin = exercice.date_fin
 
         lignes = LigneEcritureComptable.objects.filter(
+            ecriture__entreprise_id=tenant,
+            compte__entreprise_id=tenant,
             ecriture__validee=True,
         )
         if date_debut:

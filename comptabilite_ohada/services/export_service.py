@@ -8,6 +8,7 @@ from django.db.models import Sum
 from ..models import CompteComptable, EcritureComptable, LigneEcritureComptable
 from ..models import ExerciceComptable, JournalComptable
 from .journal_service import BalanceService
+from ..tenancy import require_tenant, check_owned
 
 
 class ExportService:
@@ -15,6 +16,9 @@ class ExportService:
 
     @staticmethod
     def export_balance_csv(exercice=None):
+        require_tenant()
+        if exercice is not None:
+            check_owned(exercice, what="Exercice")
         import csv
         response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = "attachment; filename=balance.csv"
@@ -33,6 +37,9 @@ class ExportService:
 
     @staticmethod
     def export_grand_livre_csv(compte_code=None, exercice=None):
+        require_tenant()
+        if exercice is not None:
+            check_owned(exercice, what="Exercice")
         import csv
         from .journal_service import GrandLivreService
         response = HttpResponse(content_type="text/csv; charset=utf-8")
@@ -50,6 +57,9 @@ class ExportService:
 
     @staticmethod
     def export_bilan_csv(exercice=None):
+        require_tenant()
+        if exercice is not None:
+            check_owned(exercice, what="Exercice")
         import csv
         from .bilan_service import BilanService
         bilan = BilanService.bilan(exercice)
@@ -76,16 +86,21 @@ class ExportService:
 
     @staticmethod
     def export_ecritures_csv(exercice=None):
+        tenant = require_tenant()
+        if exercice is not None:
+            check_owned(exercice, what="Exercice")
         import csv
         response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = "attachment; filename=ecritures.csv"
         writer = csv.writer(response)
         writer.writerow(["Date", "Référence", "Journal", "Libellé", "Compte", "Débit", "Crédit", "Validée"])
-        qs = EcritureComptable.objects.select_related("journal").prefetch_related("lignes__compte")
+        qs = EcritureComptable.objects.filter(
+            entreprise_id=tenant,
+        ).select_related("journal")
         if exercice:
             qs = qs.filter(exercice=exercice)
         for e in qs.order_by("date_ecriture"):
-            for l in e.lignes.all():
+            for l in e.lignes.filter(compte__entreprise_id=tenant):
                 writer.writerow([
                     e.date_ecriture, e.reference, e.journal.code,
                     e.libelle[:80], f"{l.compte.code} - {l.compte.libelle}",

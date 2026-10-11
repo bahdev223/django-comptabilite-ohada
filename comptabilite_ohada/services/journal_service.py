@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from ..models import EcritureComptable, LigneEcritureComptable, CompteComptable
 from ..models import JournalComptable, ExerciceComptable
+from ..tenancy import require_tenant, check_owned
 
 
 class JournalService:
@@ -13,13 +14,19 @@ class JournalService:
 
     @staticmethod
     def total_journal(journal, date_debut=None, date_fin=None):
-        qs = EcritureComptable.objects.filter(journal=journal, validee=True)
+        tenant = require_tenant()
+        check_owned(journal, tenant, what="Journal")
+        qs = EcritureComptable.objects.filter(entreprise_id=tenant, journal=journal, validee=True)
         if date_debut:
             qs = qs.filter(date_ecriture__gte=date_debut)
         if date_fin:
             qs = qs.filter(date_ecriture__lte=date_fin)
         ecritures = qs.values_list("id", flat=True)
-        lignes = LigneEcritureComptable.objects.filter(ecriture_id__in=ecritures)
+        lignes = LigneEcritureComptable.objects.filter(
+            ecriture_id__in=ecritures,
+            ecriture__entreprise_id=tenant,
+            compte__entreprise_id=tenant,
+        )
         return {
             "total_debit": lignes.aggregate(total=Sum("debit"))["total"] or Decimal("0.00"),
             "total_credit": lignes.aggregate(total=Sum("credit"))["total"] or Decimal("0.00"),
@@ -28,13 +35,22 @@ class JournalService:
 
     @staticmethod
     def liste_avec_totaux(exercice=None):
-        journaux = JournalComptable.objects.filter(actif=True)
+        tenant = require_tenant()
+        if exercice is not None:
+            check_owned(exercice, tenant, what="Exercice")
+        journaux = JournalComptable.objects.filter(entreprise_id=tenant, actif=True)
         result = []
         for j in journaux:
-            qs = EcritureComptable.objects.filter(journal=j, validee=True)
+            qs = EcritureComptable.objects.filter(
+                entreprise_id=tenant, journal=j, validee=True,
+            )
             if exercice:
                 qs = qs.filter(exercice=exercice)
-            lignes = LigneEcritureComptable.objects.filter(ecriture_id__in=qs.values("id"))
+            lignes = LigneEcritureComptable.objects.filter(
+                ecriture_id__in=qs.values("id"),
+                ecriture__entreprise_id=tenant,
+                compte__entreprise_id=tenant,
+            )
             result.append({
                 "journal": j,
                 "nb_ecritures": qs.count(),
@@ -49,11 +65,16 @@ class BalanceService:
 
     @staticmethod
     def balance(exercice=None, date_debut=None, date_fin=None):
+        tenant = require_tenant()
+        if exercice is not None:
+            check_owned(exercice, tenant, what="Exercice")
         if exercice:
             date_debut = exercice.date_debut
             date_fin = exercice.date_fin
 
         lignes = LigneEcritureComptable.objects.filter(
+            ecriture__entreprise_id=tenant,
+            compte__entreprise_id=tenant,
             ecriture__validee=True,
         )
         if date_debut:
@@ -84,8 +105,15 @@ class BalanceService:
 
     @staticmethod
     def solde_compte(compte, exercice=None):
+        tenant = require_tenant()
+        check_owned(compte, tenant, what="Compte")
+        if exercice is not None:
+            check_owned(exercice, tenant, what="Exercice")
         lignes = LigneEcritureComptable.objects.filter(
-            compte=compte, ecriture__validee=True,
+            compte=compte,
+            ecriture__entreprise_id=tenant,
+            compte__entreprise_id=tenant,
+            ecriture__validee=True,
         )
         if exercice:
             lignes = lignes.filter(
@@ -104,7 +132,12 @@ class GrandLivreService:
 
     @staticmethod
     def grand_livre(compte_code=None, exercice=None, date_debut=None, date_fin=None):
+        tenant = require_tenant()
+        if exercice is not None:
+            check_owned(exercice, tenant, what="Exercice")
         lignes = LigneEcritureComptable.objects.filter(
+            ecriture__entreprise_id=tenant,
+            compte__entreprise_id=tenant,
             ecriture__validee=True,
         ).select_related("ecriture", "compte").order_by("ecriture__date_ecriture")
 

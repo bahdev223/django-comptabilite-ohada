@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from ..models import CompteComptable, EcritureComptable, LigneEcritureComptable
 from ..models import ExerciceComptable
+from ..tenancy import require_tenant, check_owned
 
 
 class DashboardService:
@@ -13,10 +14,19 @@ class DashboardService:
 
     @staticmethod
     def synthese(exercice=None):
+        tenant = require_tenant()
         if exercice is None:
-            exercice = ExerciceComptable.objects.filter(cloture=False).first()
+            exercice = ExerciceComptable.objects.filter(
+                entreprise_id=tenant, cloture=False,
+            ).first()
+        else:
+            check_owned(exercice, tenant, what="Exercice")
 
-        base = LigneEcritureComptable.objects.filter(ecriture__validee=True)
+        base = LigneEcritureComptable.objects.filter(
+            ecriture__entreprise_id=tenant,
+            compte__entreprise_id=tenant,
+            ecriture__validee=True,
+        )
         if exercice:
             base = base.filter(
                 ecriture__date_ecriture__gte=exercice.date_debut,
@@ -38,7 +48,9 @@ class DashboardService:
         charges = base.filter(compte__code__startswith="6").aggregate(t=Sum("debit"))["t"] or Decimal("0.00")
         produits = base.filter(compte__code__startswith="7").aggregate(t=Sum("credit"))["t"] or Decimal("0.00")
 
-        nb_ecritures = EcritureComptable.objects.filter(validee=True)
+        nb_ecritures = EcritureComptable.objects.filter(
+            entreprise_id=tenant, validee=True
+        )
         if exercice:
             nb_ecritures = nb_ecritures.filter(exercice=exercice)
 
@@ -55,8 +67,11 @@ class DashboardService:
 
     @staticmethod
     def evolution_tresorerie(jours=30):
+        tenant = require_tenant()
         depuis = timezone.now().date() - timedelta(days=jours)
         lignes = LigneEcritureComptable.objects.filter(
+            ecriture__entreprise_id=tenant,
+            compte__entreprise_id=tenant,
             ecriture__validee=True,
             ecriture__date_ecriture__gte=depuis,
         ).filter(
@@ -78,6 +93,7 @@ class DashboardService:
 
     @staticmethod
     def alertes():
+        tenant = require_tenant()
         alerts = []
         config = None
         try:
@@ -92,7 +108,9 @@ class DashboardService:
                 "message": "Le plan comptable n'est pas encore initialisé",
             })
 
-        nb_brouillon = EcritureComptable.objects.filter(validee=False).count()
+        nb_brouillon = EcritureComptable.objects.filter(
+            entreprise_id=tenant, validee=False
+        ).count()
         if nb_brouillon > 0:
             alerts.append({
                 "niveau": "info",
@@ -103,26 +121,36 @@ class DashboardService:
 
     @staticmethod
     def compter_ecritures():
-        return EcritureComptable.objects.count()
+        return EcritureComptable.objects.filter(
+            entreprise_id=require_tenant()
+        ).count()
 
     @staticmethod
     def compter_ecritures_non_validees():
-        return EcritureComptable.objects.filter(validee=False).count()
+        return EcritureComptable.objects.filter(
+            entreprise_id=require_tenant(), validee=False
+        ).count()
 
     @staticmethod
     def dernieres_ecritures(limit=10):
-        return EcritureComptable.objects.select_related("journal", "exercice").order_by(
+        return EcritureComptable.objects.filter(
+            entreprise_id=require_tenant()
+        ).select_related("journal", "exercice").order_by(
             "-date_ecriture", "-created_at"
         )[:limit]
 
     @staticmethod
     def exercice_courant():
-        exercice = ExerciceComptable.objects.filter(cloture=False).first()
+        exercice = ExerciceComptable.objects.filter(
+            entreprise_id=require_tenant(), cloture=False
+        ).first()
         return str(exercice) if exercice else None
 
     @staticmethod
     def totaux_par_journal():
         from django.db.models import Sum
-        return EcritureComptable.objects.values("journal__code").annotate(
+        return EcritureComptable.objects.filter(
+            entreprise_id=require_tenant(),
+        ).values("journal__code").annotate(
             total=Sum("lignes__debit")
         ).order_by("journal__code")
