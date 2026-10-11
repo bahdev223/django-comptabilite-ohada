@@ -8,6 +8,7 @@ CHAQUE porte, et l'on regarde si l'une d'elles cede.
 from decimal import Decimal
 
 from django.test import TestCase
+from django.core.exceptions import ValidationError
 
 from comptabilite_ohada.models import (
     CompteComptable, EcritureComptable, ExerciceComptable, JournalComptable,
@@ -21,19 +22,19 @@ class UneEcritureFausseNePasseParAucunePorte(TestCase):
     def setUp(self):
         self.exercice = ExerciceComptable.objects.create(
             code="2026", date_debut="2026-01-01", date_fin="2026-12-31",
-        )
+        entreprise_id="TEST")
         self.journal = JournalComptable.objects.create(
             code="VT", libelle="Ventes", type_journal="VENTES",
-        )
+        entreprise_id="TEST")
         # 571 Caisse : un compte d'actif, qui augmente au DEBIT.
         self.caisse = CompteComptable.objects.create(
             code="571000", libelle="Caisse", nature="ACTIF", sens="DEBIT",
-        )
+        entreprise_id="TEST")
         # 701 Ventes : un compte de produit, qui augmente au CREDIT.
         self.vente = CompteComptable.objects.create(
             code="701000", libelle="Ventes de marchandises",
             nature="PRODUIT", sens="CREDIT",
-        )
+        entreprise_id="TEST")
 
     def _lignes_fausses(self):
         """100 000 au debit, 90 000 au credit : 10 000 sortis de nulle part."""
@@ -48,7 +49,7 @@ class UneEcritureFausseNePasseParAucunePorte(TestCase):
                 journal=self.journal, exercice=self.exercice,
                 date_ecriture="2026-06-01", reference="FAUSSE-1",
                 libelle="Tentative", lignes=self._lignes_fausses(),
-            )
+            entreprise_id="TEST")
         self.assertIn("desequilibree", str(capture.exception).lower().replace("é", "e"))
 
     def test_creee_a_la_main_elle_ne_peut_pas_etre_validee(self):
@@ -61,13 +62,13 @@ class UneEcritureFausseNePasseParAucunePorte(TestCase):
             journal=self.journal, exercice=self.exercice,
             date_ecriture="2026-06-01", reference="FAUSSE-2",
             libelle="Tentative", validee=False,
-        )
+        entreprise_id="TEST")
         for ligne in self._lignes_fausses():
             LigneEcritureComptable.objects.create(ecriture=ecriture, **ligne)
 
         self.assertFalse(ecriture.est_equilibree)
-        with self.assertRaises(ValueError):
-            ValidationService.valider_ecriture(ecriture)
+        with self.assertRaises(ValidationError):
+            ValidationService.valider_ecriture(ecriture, entreprise_id="TEST")
 
         ecriture.refresh_from_db()
         self.assertFalse(ecriture.validee, "une ecriture fausse a ete validee")
@@ -91,9 +92,9 @@ class UneEcritureFausseNePasseParAucunePorte(TestCase):
                 {"compte": self.caisse, "debit": Decimal("100000")},
                 {"compte": self.vente, "credit": Decimal("100000")},
             ],
-        )
+        entreprise_id="TEST")
         self.assertTrue(ecriture.est_equilibree)
-        ValidationService.valider_ecriture(ecriture)
+        ValidationService.valider_ecriture(ecriture, entreprise_id="TEST")
         ecriture.refresh_from_db()
         self.assertTrue(ecriture.validee)
 
@@ -108,5 +109,6 @@ class UneEcritureFausseNePasseParAucunePorte(TestCase):
                 {"compte": self.caisse, "debit": Decimal("50000")},
                 {"compte": self.vente, "credit": Decimal("50000")},
             ],
-        )
-        self.assertEqual(BalanceService.solde_compte(self.caisse), Decimal("50000"))
+        entreprise_id="TEST")
+        self.assertEqual(BalanceService.solde_compte(self.caisse, entreprise_id="TEST"), Decimal("50000"))
+

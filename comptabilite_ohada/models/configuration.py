@@ -7,6 +7,8 @@ from django.utils.translation import gettext_lazy as _
 class ConfigurationComptable(models.Model):
     """Configuration générale de la comptabilité."""
 
+    entreprise_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
+
     nom = models.CharField(_("Nom"), max_length=200, default="Mon Entreprise")
     devise = models.CharField(_("Devise"), max_length=10, default="FCFA")
 
@@ -37,6 +39,7 @@ class ConfigurationComptable(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        constraints = [models.UniqueConstraint(fields=["entreprise_id"], condition=~models.Q(entreprise_id=""), name="ohada_config_tenant_unique")]
         verbose_name = _("Configuration comptable")
         verbose_name_plural = _("Configuration comptable")
 
@@ -44,8 +47,9 @@ class ConfigurationComptable(models.Model):
         return self.nom
 
     @classmethod
-    def get_config(cls):
-        obj, _ = cls.objects.get_or_create(pk=1)
+    def get_config(cls, *, entreprise_id=None):
+        from ..tenancy import require_enterprise
+        obj, _ = cls.objects.get_or_create(entreprise_id=require_enterprise(entreprise_id))
         return obj
 
 
@@ -70,3 +74,4 @@ class SoldeInitialComptable(models.Model):
 
     def __str__(self):
         return f"Soldes initiaux — {self.configuration.nom}"
+

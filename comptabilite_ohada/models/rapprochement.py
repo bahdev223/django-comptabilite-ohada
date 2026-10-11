@@ -3,6 +3,7 @@ from django.utils.translation import gettext_lazy as _
 
 
 class ReleveBancaire(models.Model):
+    entreprise_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
     """Relevé bancaire importé pour rapprochement."""
 
     STATUT_CHOICES = [
@@ -56,3 +57,4 @@ class LigneReleveBancaire(models.Model):
 
     def __str__(self):
         return f"{self.date_operation} - {self.libelle} - {self.montant:,.0f}"
+

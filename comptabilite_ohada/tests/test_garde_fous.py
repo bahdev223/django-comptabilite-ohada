@@ -31,13 +31,13 @@ class GardeFousEcritureTest(TestCase):
     def setUp(self):
         self.journal = JournalComptable.objects.create(
             code="CA", libelle="Caisse", type_journal="CAISSE"
-        )
+        , entreprise_id="TEST")
         self.compte = CompteComptable.objects.create(
             code="571", libelle="Caisse", niveau=3
-        )
+        , entreprise_id="TEST")
         self.autre = CompteComptable.objects.create(
             code="706", libelle="Services vendus", niveau=3
-        )
+        , entreprise_id="TEST")
 
     # Sentinelle : il faut distinguer « non fourni » de « fourni a None »,
     # sinon le helper substitue un compte valide et le test ne teste rien.
@@ -57,7 +57,7 @@ class GardeFousEcritureTest(TestCase):
             EcritureService.creer_ecriture(
                 reference="TEST-1", date_ecriture=dt.date(2026, 6, 1),
                 libelle="Encaissement", journal=self.journal, lignes=self._lignes(),
-            )
+            entreprise_id="TEST")
         self.assertIn("exercice", str(ctx.exception).lower())
         self.assertEqual(EcritureComptable.objects.count(), 0)
 
@@ -65,10 +65,10 @@ class GardeFousEcritureTest(TestCase):
         ExerciceComptable.objects.create(
             code="2026", date_debut=dt.date(2026, 1, 1),
             date_fin=dt.date(2026, 12, 31), cloture=False,
-        )
+        entreprise_id="TEST")
         # get_compte rend None pour un code absent du plan : c'est ce None
         # qui arrivait jusqu'a la contrainte de base.
-        introuvable = EcritureService.get_compte("9999")
+        introuvable = EcritureService.get_compte("9999", entreprise_id="TEST")
         self.assertIsNone(introuvable)
 
         with self.assertRaises(ValidationError) as ctx:
@@ -76,7 +76,7 @@ class GardeFousEcritureTest(TestCase):
                 reference="TEST-2", date_ecriture=dt.date(2026, 6, 1),
                 libelle="Encaissement", journal=self.journal,
                 lignes=self._lignes(compte_debit=introuvable),
-            )
+            entreprise_id="TEST")
         self.assertIn("compte", str(ctx.exception).lower())
         self.assertEqual(EcritureComptable.objects.count(), 0)
 
@@ -85,10 +85,11 @@ class GardeFousEcritureTest(TestCase):
         ExerciceComptable.objects.create(
             code="2026", date_debut=dt.date(2026, 1, 1),
             date_fin=dt.date(2026, 12, 31), cloture=False,
-        )
+        entreprise_id="TEST")
         ecriture = EcritureService.creer_ecriture(
             reference="TEST-3", date_ecriture=dt.date(2026, 6, 1),
             libelle="Encaissement", journal=self.journal, lignes=self._lignes(),
-        )
+        entreprise_id="TEST")
         self.assertEqual(EcritureComptable.objects.count(), 1)
         self.assertEqual(ecriture.lignes.count(), 2)
+

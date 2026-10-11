@@ -96,3 +96,10 @@ COMPTABILITE_OHADA = {
 ## Licence
 
 MIT
+
+
+## Branche de sécurisation P0 (non publiée comme release)
+
+Voir [audit, contrats stricts et blocages](docs/P0_REMEDIATION.md). Les appels exigent désormais `entreprise_id=` explicite. Les anciens endpoints et ponts automatiques sont désactivés ; amortissements/rapprochement suspendus. Ne pas remplacer le moteur d'un hôte existant sans adaptation et recette.
+
+Validation locale : `python -m django test comptabilite_ohada --settings=test_settings` (52 tests SQLite). PostgreSQL : sur une base de test isolée, `OHADA_TEST_POSTGRES=1 POSTGRES_DB=... POSTGRES_USER=... POSTGRES_PASSWORD=... python -m django test comptabilite_ohada --settings=test_settings`. PostgreSQL et concurrence restent non attestés.

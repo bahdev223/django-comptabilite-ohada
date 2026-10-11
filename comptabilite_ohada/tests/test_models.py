@@ -14,7 +14,7 @@ class CompteComptableModelTest(TestCase):
             libelle="Caisse",
             nature="DEBIT",
             type_compte="compte",
-        )
+        entreprise_id="TEST")
 
     def test_compte_str(self):
         self.assertEqual(str(self.compte), "571 - Caisse")
@@ -31,7 +31,7 @@ class CompteComptableModelTest(TestCase):
         """
         from comptabilite_ohada.services.journal_service import BalanceService
 
-        self.assertEqual(BalanceService.solde_compte(self.compte), 0)
+        self.assertEqual(BalanceService.solde_compte(self.compte, entreprise_id="TEST"), 0)
 
 
 class EcritureComptableModelTest(TestCase):
@@ -39,17 +39,17 @@ class EcritureComptableModelTest(TestCase):
         self.user = User.objects.create_user(username="compta", password="test1234")
         self.journal = JournalComptable.objects.create(
             code="VN", libelle="Journal des ventes", type_journal="VN"
-        )
+        , entreprise_id="TEST")
         self.exercice = ExerciceComptable.objects.create(
             code="2025",
             date_debut="2025-01-01", date_fin="2025-12-31",
-        )
+        entreprise_id="TEST")
         self.compte_571 = CompteComptable.objects.create(
             code="571", libelle="Caisse", nature="DEBIT", type_compte="compte",
-        )
+        entreprise_id="TEST")
         self.compte_701 = CompteComptable.objects.create(
             code="701", libelle="Ventes", nature="CREDIT", type_compte="compte",
-        )
+        entreprise_id="TEST")
 
     def test_ecriture_equilibree(self):
         ecriture = EcritureComptable.objects.create(
@@ -59,7 +59,7 @@ class EcritureComptableModelTest(TestCase):
             reference="VN-001",
             libelle="Vente comptant",
             created_by=self.user,
-        )
+        entreprise_id="TEST")
         LigneEcritureComptable.objects.create(
             ecriture=ecriture, compte=self.compte_571, debit=100000,
         )
@@ -79,7 +79,7 @@ class EcritureComptableModelTest(TestCase):
             reference="VN-002",
             libelle="Vente déséquilibrée",
             created_by=self.user,
-        )
+        entreprise_id="TEST")
         LigneEcritureComptable.objects.create(
             ecriture=ecriture, compte=self.compte_571, debit=100000,
         )
@@ -93,12 +93,13 @@ class ExerciceComptableModelTest(TestCase):
         exercice = ExerciceComptable.objects.create(
             code="2025",
             date_debut="2025-01-01", date_fin="2025-12-31",
-        )
+        entreprise_id="TEST")
         self.assertFalse(exercice.cloture)
 
     def test_exercice_str(self):
         exercice = ExerciceComptable.objects.create(
             code="2025",
             date_debut="2025-01-01", date_fin="2025-12-31",
-        )
+        entreprise_id="TEST")
         self.assertIn("2025", str(exercice))
+

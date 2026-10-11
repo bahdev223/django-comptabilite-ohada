@@ -53,3 +53,7 @@ if getattr(settings, "COMPTABILITE_OHADA", {}).get("API_ENABLED", True):
     urlpatterns += [
         path("", include("comptabilite_ohada.api.urls")),
     ]
+
+
+# No legacy routes until the enterprise-authorized adapter replaces them.
+urlpatterns = []

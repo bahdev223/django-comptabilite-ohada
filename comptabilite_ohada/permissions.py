@@ -14,9 +14,19 @@ def get_all_compta_permissions():
 
 
 def has_compta_permission(user, permission_codename):
-    if user.is_superuser or user.is_staff:
-        return True
-    return (
-        user.user_permissions.filter(codename=permission_codename).exists()
-        or user.groups.filter(permissions__codename=permission_codename).exists()
-    )
+    # Host must additionally check active enterprise membership and local role.
+    return bool(user.is_authenticated and user.is_active and (
+        user.user_permissions.filter(content_type__app_label='comptabilite_ohada', codename=permission_codename).exists()
+        or user.groups.filter(permissions__content_type__app_label='comptabilite_ohada', permissions__codename=permission_codename).exists()
+    ))
+
+
+from rest_framework.permissions import BasePermission
+
+
+class LegacyAPIUnavailable(BasePermission):
+    message = 'API OHADA historique désactivée ; adaptateur autorisé par entreprise requis.'
+
+    def has_permission(self, request, view):
+        return False
+

@@ -1,3 +1,4 @@
+from .tenancy import require_enterprise, require_owned, scoped_lines
 from django.db.models import Sum, Q
 from datetime import date, timedelta
 
@@ -13,28 +14,31 @@ from .services.dashboard_service import DashboardService
 class ComptabiliteSelector:
     """Requêtes complexes pour la comptabilité."""
 
-    def __init__(self):
+    def __init__(self, *, entreprise_id=None):
+        self.entreprise_id = require_enterprise(entreprise_id)
         self.balance = BalanceService()
         self.grand_livre = GrandLivreService()
         self.bilan_service = BilanService()
         self.dashboard = DashboardService()
 
     def compte_detail(self, code):
-        return CompteComptable.objects.filter(code=code).first()
+        return CompteComptable.objects.filter(entreprise_id=self.entreprise_id).filter(code=code).first()
 
     def compte_enfants(self, code_prefix):
-        return CompteComptable.objects.filter(code__startswith=code_prefix, actif=True)
+        return CompteComptable.objects.filter(entreprise_id=self.entreprise_id).filter(code__startswith=code_prefix, actif=True)
 
     def ecritures_non_validees(self):
-        return EcritureComptable.objects.filter(validee=False).order_by("-date_ecriture")
+        return EcritureComptable.objects.filter(entreprise_id=self.entreprise_id).filter(validee=False).order_by("-date_ecriture")
 
     def ecritures_par_periode(self, debut, fin):
-        return EcritureComptable.objects.filter(
+        return EcritureComptable.objects.filter(entreprise_id=self.entreprise_id).filter(
             date_ecriture__gte=debut, date_ecriture__lte=fin,
         ).order_by("-date_ecriture")
 
     def ecritures_par_compte(self, compte_code, exercice=None):
-        qs = LigneEcritureComptable.objects.filter(
+        if exercice is not None:
+            exercice = require_owned(exercice, self.entreprise_id)
+        qs = scoped_lines(self.entreprise_id).filter(
             compte__code__startswith=compte_code,
             ecriture__validee=True,
         ).select_related("ecriture", "compte")
@@ -46,7 +50,8 @@ class ComptabiliteSelector:
         return qs.order_by("ecriture__date_ecriture")
 
     def immobilisations_actives(self):
-        return Immobilisation.objects.filter(statut="ACTIF")
+        return Immobilisation.objects.filter(entreprise_id=self.entreprise_id).filter(statut="ACTIF")
 
     def immobilisations_avec_plan(self, immo_id):
-        return Immobilisation.objects.prefetch_related("plan_amortissement").filter(id=immo_id).first()
+        return Immobilisation.objects.filter(entreprise_id=self.entreprise_id).prefetch_related("plan_amortissement").filter(id=immo_id).first()
+
