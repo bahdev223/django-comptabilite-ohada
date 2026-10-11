@@ -3,9 +3,13 @@ from decimal import Decimal
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from ..tenancy import require_tenant
+
 
 class ConfigurationComptable(models.Model):
-    """Configuration générale de la comptabilité."""
+    """Configuration générale de la comptabilité, propre à chaque entreprise."""
+
+    entreprise_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
 
     nom = models.CharField(_("Nom"), max_length=200, default="Mon Entreprise")
     devise = models.CharField(_("Devise"), max_length=10, default="FCFA")
@@ -44,8 +48,11 @@ class ConfigurationComptable(models.Model):
         return self.nom
 
     @classmethod
-    def get_config(cls):
-        obj, _ = cls.objects.get_or_create(pk=1)
+    def get_config(cls, entreprise_id=None):
+        tenant = require_tenant(entreprise_id)
+        obj, _ = cls.objects.get_or_create(
+            entreprise_id=tenant, defaults={"nom": "Mon entreprise"}
+        )
         return obj
 
 

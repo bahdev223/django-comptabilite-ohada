@@ -69,3 +69,20 @@ def resolve_request_tenant(request):
         return require_tenant(resolver(request))
     except (ImportError, ValueError, TypeError, ValidationError) as exc:
         raise PermissionDenied("Impossible de vérifier l'appartenance à l'entreprise.") from exc
+
+
+_LEDGER_VALIDATION_ALLOWED = ContextVar("comptabilite_ohada_ledger_validation", default=False)
+
+
+@contextmanager
+def allow_ledger_validation():
+    """Internal guard used only by ValidationService while holding fiscal locks."""
+    token = _LEDGER_VALIDATION_ALLOWED.set(True)
+    try:
+        yield
+    finally:
+        _LEDGER_VALIDATION_ALLOWED.reset(token)
+
+
+def is_ledger_validation_allowed():
+    return _LEDGER_VALIDATION_ALLOWED.get()

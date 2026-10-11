@@ -3,6 +3,8 @@ from django.utils.translation import gettext_lazy as _
 
 
 class ReleveBancaire(models.Model):
+    entreprise_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
+
     """Relevé bancaire importé pour rapprochement."""
 
     STATUT_CHOICES = [

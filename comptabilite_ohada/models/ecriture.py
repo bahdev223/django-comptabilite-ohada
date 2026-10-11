@@ -1,8 +1,11 @@
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+from ..tenancy import require_tenant, check_owned, is_ledger_validation_allowed
 
 
 class EcritureComptable(models.Model):
@@ -46,6 +49,47 @@ class EcritureComptable(models.Model):
     def __str__(self):
         return f"{self.reference} - {self.date_ecriture} - {self.libelle[:60]}"
 
+    def clean(self):
+        super().clean()
+        tenant = require_tenant(self.entreprise_id)
+        if self.journal_id:
+            check_owned(self.journal, tenant, what="Journal")
+            if not self.journal.actif:
+                raise ValidationError("Journal inactif.")
+        if self.exercice_id:
+            check_owned(self.exercice, tenant, what="Exercice")
+            day = self.date_ecriture
+            if isinstance(day, str):
+                from datetime import date
+                try:
+                    day = date.fromisoformat(day)
+                except ValueError as exc:
+                    raise ValidationError("Date d'écriture invalide.") from exc
+            if not self.exercice.date_debut <= day <= self.exercice.date_fin:
+                raise ValidationError("Écriture datée hors exercice.")
+            if self.exercice.cloture:
+                raise ValidationError("Une écriture ne peut pas être modifiée dans un exercice clôturé.")
+
+    def save(self, *args, **kwargs):
+        # No ORM insert of a pre-validated empty entry. Only ValidationService
+        # may perform the transition from draft to validated.
+        if self.pk is None and self.validee:
+            raise ValidationError("Créer d'abord le brouillon et ses lignes.")
+        if self.pk is not None:
+            previous = type(self).objects.filter(pk=self.pk).first()
+            if previous is not None:
+                if previous.validee:
+                    raise ValidationError("Une écriture validée est immuable.")
+                if self.validee and not is_ledger_validation_allowed():
+                    raise ValidationError("La validation exige ValidationService.")
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.validee:
+            raise ValidationError("Une écriture validée ne peut être supprimée.")
+        return super().delete(*args, **kwargs)
+
     @property
     def total_debit(self):
         return self.lignes.aggregate(total=models.Sum("debit"))["total"] or Decimal("0.00")
@@ -84,8 +128,33 @@ class LigneEcritureComptable(models.Model):
         return f"{self.ecriture.reference} - {self.compte.code} - {self.debit or self.credit:,.0f}"
 
     def clean(self):
-        from django.core.exceptions import ValidationError
-        if self.debit and self.credit:
-            raise ValidationError(_("Une ligne ne peut pas avoir débit ET crédit"))
-        if self.debit < 0 or self.credit < 0:
-            raise ValidationError(_("Les montants doivent être positifs"))
+        super().clean()
+        if not self.ecriture_id or not self.compte_id:
+            raise ValidationError("Écriture et compte obligatoires.")
+        tenant = require_tenant(self.ecriture.entreprise_id)
+        check_owned(self.compte, tenant, what="Compte de ligne")
+        if not self.compte.actif or not self.compte.est_mouvement:
+            raise ValidationError("Compte inactif ou non mouvementable.")
+        if self.debit is None or self.credit is None:
+            raise ValidationError("Montants obligatoires.")
+        from decimal import Decimal
+        try:
+            debit = Decimal(str(self.debit))
+            credit = Decimal(str(self.credit))
+        except Exception as exc:
+            raise ValidationError("Montant invalide.") from exc
+        if not debit.is_finite() or not credit.is_finite():
+            raise ValidationError("Montants non finis interdits.")
+        if debit < 0 or credit < 0 or (debit > 0) == (credit > 0):
+            raise ValidationError("Chaque ligne a un seul sens strictement positif.")
+        if self.ecriture.validee:
+            raise ValidationError("Les lignes d'une écriture validée sont immuables.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.ecriture.validee:
+            raise ValidationError("Les lignes validées ne peuvent être supprimées.")
+        return super().delete(*args, **kwargs)

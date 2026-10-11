@@ -2,11 +2,16 @@ from decimal import Decimal
 from datetime import date
 
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+
+from ..tenancy import require_tenant, check_owned
 
 
 class Immobilisation(models.Model):
-    """Immobilisation (actif fixe amortissable)."""
+    """Immobilisation (actif fixe amortissable) par entreprise."""
+
+    entreprise_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
 
     TYPE_CHOICES = [
         ("CORPORELLE", _("Immobilisation corporelle")),
@@ -14,7 +19,7 @@ class Immobilisation(models.Model):
         ("FINANCIERE", _("Immobilisation financière")),
     ]
 
-    code = models.CharField(_("Code"), max_length=20, unique=True)
+    code = models.CharField(_("Code"), max_length=20)
     libelle = models.CharField(_("Libellé"), max_length=200)
     type_immobilisation = models.CharField(
         _("Type"), max_length=20, choices=TYPE_CHOICES,
@@ -49,6 +54,21 @@ class Immobilisation(models.Model):
         verbose_name = _("Immobilisation")
         verbose_name_plural = _("Immobilisations")
         ordering = ["code"]
+        unique_together = [("entreprise_id", "code")]
+
+    def clean(self):
+        super().clean()
+        tenant = require_tenant(self.entreprise_id)
+        for label, field in (
+            ("Immobilisation", self.compte_immobilisation),
+            ("Amortissement", self.compte_amortissement),
+            ("Charge d'amortissement", self.compte_charge),
+        ):
+            check_owned(field, tenant, what=label)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.code} - {self.libelle}"

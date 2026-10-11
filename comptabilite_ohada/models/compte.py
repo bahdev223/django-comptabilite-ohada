@@ -1,5 +1,8 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+
+from ..tenancy import check_owned, require_tenant
 
 
 class NatureCompte(models.TextChoices):
@@ -76,6 +79,16 @@ class CompteComptable(models.Model):
             models.Index(fields=["code"]),
             models.Index(fields=["parent"]),
         ]
+
+    def clean(self):
+        super().clean()
+        tenant = require_tenant(self.entreprise_id)
+        if self.parent_id:
+            check_owned(self.parent, tenant, what="Compte parent")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.code} - {self.libelle}"
