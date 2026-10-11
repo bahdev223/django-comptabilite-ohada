@@ -46,7 +46,7 @@ class CompteComptable(models.Model):
     nature = models.CharField(_("Nature"), max_length=10, choices=NatureCompte.choices)
     sens = models.CharField(_("Sens"), max_length=10, choices=SensCompte.choices)
     parent = models.ForeignKey(
-        "self", on_delete=models.CASCADE, null=True, blank=True,
+        "self", on_delete=models.PROTECT, null=True, blank=True,
         related_name="enfants", verbose_name=_("Compte parent"),
     )
     niveau = models.IntegerField(_("Niveau"), default=1)

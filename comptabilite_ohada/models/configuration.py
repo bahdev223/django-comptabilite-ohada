@@ -43,6 +43,13 @@ class ConfigurationComptable(models.Model):
     class Meta:
         verbose_name = _("Configuration comptable")
         verbose_name_plural = _("Configuration comptable")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["entreprise_id"],
+                condition=~models.Q(entreprise_id=""),
+                name="ohada_config_tenant_nonempty_unique",
+            ),
+        ]
 
     def __str__(self):
         return self.nom

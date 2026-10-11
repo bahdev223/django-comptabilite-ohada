@@ -15,11 +15,11 @@ class EcritureComptable(models.Model):
     date_ecriture = models.DateField(_("Date d'écriture"))
     libelle = models.TextField(_("Libellé"))
     journal = models.ForeignKey(
-        "JournalComptable", on_delete=models.CASCADE, verbose_name=_("Journal"),
+        "JournalComptable", on_delete=models.PROTECT, verbose_name=_("Journal"),
     )
     piece = models.CharField(_("Pièce"), max_length=50, blank=True, null=True)
     exercice = models.ForeignKey(
-        "ExerciceComptable", on_delete=models.CASCADE, verbose_name=_("Exercice"),
+        "ExerciceComptable", on_delete=models.PROTECT, verbose_name=_("Exercice"),
     )
     validee = models.BooleanField(_("Validée"), default=False)
     date_validation = models.DateTimeField(_("Date validation"), null=True, blank=True)
@@ -119,11 +119,11 @@ class LigneEcritureComptable(models.Model):
     """Ligne d'une écriture comptable."""
 
     ecriture = models.ForeignKey(
-        EcritureComptable, on_delete=models.CASCADE, related_name="lignes",
+        EcritureComptable, on_delete=models.PROTECT, related_name="lignes",
         verbose_name=_("Écriture"),
     )
     compte = models.ForeignKey(
-        "CompteComptable", on_delete=models.CASCADE, verbose_name=_("Compte"),
+        "CompteComptable", on_delete=models.PROTECT, verbose_name=_("Compte"),
     )
     debit = models.DecimalField(_("Débit"), max_digits=15, decimal_places=2, default=Decimal("0.00"))
     credit = models.DecimalField(_("Crédit"), max_digits=15, decimal_places=2, default=Decimal("0.00"))
