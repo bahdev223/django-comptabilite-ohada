@@ -1,26 +1,47 @@
-# P0 : séparation du moteur comptable, multi-entreprise et écritures
+# Audit d'extraction P0 — SahelTech Comptabilité
 
-## Règles de sécurité
+Branche : \`fix/tenant-isolation-accounting-p0\`. Référence source : \`main\` du moteur \`django-comptabilite-ohada\`.
 
-1. Tout appel de service métier doit s'exécuter dans `tenant_scope(entreprise_id)` depuis un contexte de confiance, et toute requête doit être filtrée sur ce même identifiant.
-2. Aucun identifiant fourni par un client ne vaut preuve d'appartenance ; l'hôte implémente `COMPTABILITE_OHADA["TENANT_RESOLVER"]` pour vérifier les droits réels (utilisateur, entreprise, rôle).
-3. Les anciens signaux `django-comptes` sont interdits : encaissement ≠ vente ; décaissement ≠ charge ; transfert ≠ chiffre d'affaires. Leur activation provoque une erreur de configuration explicite.
-4. Une écriture validée doit être équilibrée, rattachée à un exercice ouvert couvrant sa date et composée exclusivement de comptes/journaux du bon tenant.
-5. Pour corriger une écriture validée, enregistrer une contrepassation dans un exercice ouvert autorisé ; jamais modifier silencieusement les lignes validées.
-6. La synchronisation Cloud/Local ne peut pas deviner l'autorité d'une clôture : le contrat de synchronisation sera distinct, versionné et idempotent.
+## Changements réalisés dans la branche
 
-## Migration des données
+- Contexte de société obligatoire via \`comptabilite_ohada.tenancy.tenant_scope\`.
+- Recherche tenant-scoped de comptes, journaux, exercices, écritures, immobilisations, configurations et relevés.
+- Validation comptable : comptes actifs/mouvementables, exercice ouvert et couvrant la date, au moins deux lignes, débit = crédit, montant Decimal positif, transactions atomiques.
+- Validation sous verrou d'exercice, contrepassation à référence stable dans un exercice ouvert.
+- Suppression des récepteurs de signaux \`django-comptes\` : aucun encaissement ou transfert n'est automatiquement assimilé à une vente.
+- API DRF : utilisateur authentifié, permissions Django par modèle, resolver d'appartenance entreprise fourni par l'hôte et filtrage sur toutes les lectures.
+- Vue HTML historique désenregistrée ; API inactive sans opt-in.
+- Rapports, exports, sélecteurs, relevés, amortissements et initialisation limités au tenant actif.
+- Modèles auxiliaires multi-entreprise ; FKs comptables PROTECT ; migration 0004/0005.
+- Données préexistantes avec \`entreprise_id=""\` **quarantinées**, pas réattribuées automatiquement.
+- Clôture/réouverture désactivées avant revue métier SYSCOHADA/Cloud-Local.
+- Tests multi-entreprises rédigés mais encore non exécutés.
 
-Les anciens enregistrements peuvent avoir `entreprise_id=""`. Ne pas les rattacher à une société de façon automatique. Préparer un script de diagnostic et une opération humaine de réattribution avec preuves ; comparer balances/écritures sur une copie de base avant d'appliquer des contraintes NOT BLANK ou un basculement production.
+## Décisions irréversibles interdites pour l'instant
 
-## Rupture de compatibilité intentionnelle
+- Aucune migration en production sans essais PostgreSQL sur sauvegarde/restauration.
+- Aucun export ou réaffectation automatique d'anciennes lignes sans preuve de rattachement à une société.
+- Aucune activation des anciens signaux ou vues HTML par une simple option.
+- Aucun déploiement, fusion ou GitHub Actions sans autorisation explicite.
 
-L'API et les vues HTML historiques ne doivent pas être exposées sans contrôle d'accès tenant fiable. Les consommateurs migrent vers une API explicitement autorisée et des services de domaine prenant un contexte tenant. Les intégrations signal-based sont supprimées.
+## Procédure pour les données historiques
 
-## Validation impérative avant merge
+1. Copier et restaurer une base non productive, avec inventaire du nombre d'écritures et soldes par entreprise connue.
+2. Appliquer 0004/0005 sur la copie et lancer \`audit_tenant_isolation --fail-on-anomaly\`.
+3. Construire un mapping audité \`ancien ID / entreprise métier / preuve / nouvelle entreprise_id\`.
+4. Corriger les croisements de sociétés en conservant l'historique et les justificatifs (pas de suppression silencieuse).
+5. Recalculer balance, grand livre et résultat avant/après ; comparer les sommes par entreprise et exercice.
+6. Tester les permissions HTTP (GET, POST, actions), annulations répétées, références et verrous PostgreSQL.
+7. Écrire un rollback puis seulement décider d'une mise en production.
 
-- `python manage.py check`, `python manage.py makemigrations --check --dry-run`
-- Exécuter tous les tests Django puis PostgreSQL (deux sociétés avec mêmes codes de compte).
-- Vérifier les routes de lecture/écriture, sélection de pièces et rapports, clôtures, contrepassations et transactions concurrentes.
-- Tester les migrations sur copie, sauvegarde/restauration, et effectuer une revue des consommateurs Platform.
-- Ne pas lancer GitHub Actions ni déployer sans autorisation.
+## Points restant bloquants
+
+- Tests Django/PostgreSQL et contrôle de cohérence des migrations **non exécutés**.
+- Analyse métier validée de la clôture / réouverture, calcul de résultat et obligations SYSCOHADA.
+- Raccordement réel à SahelTech Accounts via une API du nouveau service, pas la bibliothèque seule.
+- Convergence des 16 fichiers divergents du moteur avec la copie Platform.
+- Contrat d'intégration d'événements interservices / outbox-inbox / idempotence et mode offline.
+- Audit du plan comptable et des données locales existantes.
+- UX React de la nouvelle application.
+
+Ce correctif privilégie un défaut fermé plutôt qu'une comptabilisation silencieuse ou une lecture inter-entreprises.
