@@ -1,178 +1,259 @@
-from rest_framework import viewsets, status
+"""Fail-closed accounting REST API.
+
+Read/query endpoints are tenant-filtered and require model permissions.
+Legacy write-capable ModelViewSets have been replaced by read-only views.
+Ledger creates/validations/reversals use the audited domain service.
+"""
+from decimal import Decimal
+
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Sum
+from django.shortcuts import get_object_or_404
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django_filters import rest_framework as filters
-from django.db.models import Sum, Q
-from django.utils import timezone
 
 from ..models import (
-    CompteComptable, EcritureComptable, LigneEcritureComptable,
-    JournalComptable, ExerciceComptable, ConfigurationComptable,
-    Immobilisation, PlanAmortissement,
+    CompteComptable, EcritureComptable, ExerciceComptable,
+    JournalComptable, ConfigurationComptable, Immobilisation,
+    LigneEcritureComptable,
 )
 from ..services.ecriture_service import EcritureService
+from ..services.exercice_service import ValidationService
 from ..services.journal_service import BalanceService, GrandLivreService
 from ..services.bilan_service import BilanService
-from ..services.exercice_service import ExerciceService
-from ..services.amortissement_service import AmortissementService
+from ..tenancy import resolve_request_tenant, tenant_scope
+from .permissions import AccountingModelPermission
 from .serializers import (
     CompteComptableSerializer, EcritureComptableSerializer,
     EcritureCreateSerializer, JournalComptableSerializer,
     ExerciceComptableSerializer, ConfigurationComptableSerializer,
-    ImmobilisationSerializer, PlanAmortissementSerializer,
+    ImmobilisationSerializer,
 )
 
 
-class CompteComptableViewSet(viewsets.ModelViewSet):
+class TenantScopedViewSet:
+    """Resolve tenant from a trusted host resolver, not directly from HTTP headers."""
+
+    permission_classes = [IsAuthenticated, AccountingModelPermission]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        self.tenant_id = resolve_request_tenant(request)
+        self._tenant_context = tenant_scope(self.tenant_id)
+        self._tenant_context.__enter__()
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        try:
+            return super().finalize_response(request, response, *args, **kwargs)
+        finally:
+            context = getattr(self, "_tenant_context", None)
+            if context is not None:
+                context.__exit__(None, None, None)
+                self._tenant_context = None
+
+    def get_queryset(self):
+        return super().get_queryset().filter(entreprise_id=self.tenant_id)
+
+    def get_serializer_context(self):
+        result = super().get_serializer_context()
+        result["tenant_id"] = self.tenant_id
+        return result
+
+
+def _domaine_error(error):
+    return ValidationError(getattr(error, "messages", [str(error)]))
+
+
+class CompteComptableViewSet(TenantScopedViewSet, viewsets.ReadOnlyModelViewSet):
+    model = CompteComptable
     queryset = CompteComptable.objects.all()
     serializer_class = CompteComptableSerializer
-    filterset_fields = ["code", "classe", "nature", "type_compte", "actif"]
-    search_fields = ["code", "libelle"]
 
     @action(detail=True, methods=["get"])
     def solde(self, request, pk=None):
         compte = self.get_object()
         exercice_id = request.query_params.get("exercice")
         qs = LigneEcritureComptable.objects.filter(
-            compte=compte, ecriture__validee=True,
+            compte=compte,
+            ecriture__entreprise_id=self.tenant_id,
+            compte__entreprise_id=self.tenant_id,
+            ecriture__validee=True,
         )
-        total_debit = qs.aggregate(total=Sum("debit"))["total"] or 0
-        total_credit = qs.aggregate(total=Sum("credit"))["total"] or 0
-        return Response({"solde": float(total_debit) - float(total_credit)})
+        if exercice_id:
+            exercice = get_object_or_404(
+                ExerciceComptable, pk=exercice_id, entreprise_id=self.tenant_id
+            )
+            qs = qs.filter(ecriture__exercice=exercice)
+        aggregates = qs.aggregate(debit=Sum("debit"), credit=Sum("credit"))
+        debit = aggregates["debit"] or Decimal("0.00")
+        credit = aggregates["credit"] or Decimal("0.00")
+        return Response({"solde_debiteur": debit - credit})
 
 
-class EcritureComptableViewSet(viewsets.ModelViewSet):
-    queryset = EcritureComptable.objects.prefetch_related("lignes__compte").all()
-    filterset_fields = ["validee", "journal", "exercice", "type_operation"]
-    search_fields = ["reference", "libelle"]
+class EcritureComptableViewSet(TenantScopedViewSet, viewsets.ReadOnlyModelViewSet):
+    model = EcritureComptable
+    queryset = EcritureComptable.objects.all()
+    serializer_class = EcritureComptableSerializer
 
     def get_serializer_class(self):
-        if self.action == "create":
-            return EcritureCreateSerializer
-        return EcritureComptableSerializer
+        return EcritureCreateSerializer if self.action == "create" else self.serializer_class
+
+    def create(self, request, *args, **kwargs):
+        serializer = EcritureCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        journal = get_object_or_404(
+            JournalComptable, pk=data["journal"],
+            entreprise_id=self.tenant_id, actif=True,
+        )
+        exercice = None
+        if "exercice" in data:
+            exercice = get_object_or_404(
+                ExerciceComptable, pk=data["exercice"], entreprise_id=self.tenant_id,
+            )
+        lines = []
+        for line in data["lignes"]:
+            account = get_object_or_404(
+                CompteComptable, pk=line["compte"], entreprise_id=self.tenant_id,
+                actif=True, est_mouvement=True,
+            )
+            lines.append({
+                "compte": account,
+                "debit": line["debit"],
+                "credit": line["credit"],
+                "libelle": line.get("libelle") or data["libelle"],
+            })
+        try:
+            entry = EcritureService.creer_ecriture(
+                reference=data["reference"],
+                date_ecriture=data["date_ecriture"],
+                libelle=data["libelle"],
+                journal=journal,
+                exercice=exercice,
+                piece=data.get("piece"),
+                lignes=lines,
+                validee=False,
+                user=request.user,
+                entreprise_id=self.tenant_id,
+            )
+        except DjangoValidationError as exc:
+            raise _domaine_error(exc) from exc
+        return Response(
+            EcritureComptableSerializer(entry, context=self.get_serializer_context()).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=["post"])
     def valider(self, request, pk=None):
-        ecriture = self.get_object()
-        if ecriture.validee:
-            return Response({"error": "Déjà validée"}, status=status.HTTP_400_BAD_REQUEST)
+        entry = self.get_object()
         try:
-            EcritureService.valider_ecriture(ecriture, request.user)
-            return Response({"status": "validée"})
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            entry = ValidationService.valider_ecriture(
+                entry, user=request.user, entreprise_id=self.tenant_id
+            )
+        except DjangoValidationError as exc:
+            raise _domaine_error(exc) from exc
+        return Response({"id": entry.pk, "status": "validee"})
 
     @action(detail=True, methods=["post"])
     def annuler(self, request, pk=None):
-        ecriture = self.get_object()
+        entry = self.get_object()
+        reason = request.data.get("raison", "")
+        if not isinstance(reason, str) or len(reason) > 200:
+            raise ValidationError({"raison": "Motif invalide."})
         try:
-            EcritureService.annuler_ecriture(ecriture, request.user)
-            return Response({"status": "annulée"})
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            reversal = ValidationService.annuler_ecriture(
+                entry, user=request.user, raison=reason, entreprise_id=self.tenant_id
+            )
+        except DjangoValidationError as exc:
+            raise _domaine_error(exc) from exc
+        return Response({"id": reversal.pk, "status": "contrepassation_creee"})
+
+    def _exercice(self, request):
+        exercice_id = request.query_params.get("exercice")
+        if exercice_id:
+            return get_object_or_404(
+                ExerciceComptable, pk=exercice_id, entreprise_id=self.tenant_id,
+            )
+        return None
 
     @action(detail=False, methods=["get"])
     def balance(self, request):
-        exercice_id = request.query_params.get("exercice")
-        service = BalanceService()
-        exercice = ExerciceComptable.objects.filter(pk=exercice_id).first() if exercice_id else None
-        data = service.balance(exercice=exercice)
-        return Response(data)
+        data = BalanceService.balance(exercice=self._exercice(request))
+        return Response([
+            {
+                "compte": {"id": row["compte"].pk, "code": row["compte"].code, "libelle": row["compte"].libelle},
+                "total_debit": row["total_debit"],
+                "total_credit": row["total_credit"],
+                "solde": row["solde"],
+            }
+            for row in data
+        ])
 
     @action(detail=False, methods=["get"])
     def grand_livre(self, request):
-        compte_code = request.query_params.get("compte")
-        exercice_id = request.query_params.get("exercice")
-        service = GrandLivreService()
-        exercice = ExerciceComptable.objects.filter(pk=exercice_id).first() if exercice_id else None
-        data = service.grand_livre(compte_code=compte_code, exercice=exercice)
-        return Response(data)
+        data = GrandLivreService.grand_livre(
+            compte_code=request.query_params.get("compte"),
+            exercice=self._exercice(request),
+        )
+        return Response([
+            {
+                **{k: v for k, v in row.items() if k != "compte"},
+                "compte": {"id": row["compte"].pk, "code": row["compte"].code},
+            }
+            for row in data
+        ])
 
     @action(detail=False, methods=["get"])
     def bilan(self, request):
-        exercice_id = request.query_params.get("exercice")
-        service = BilanService()
-        exercice = ExerciceComptable.objects.filter(pk=exercice_id).first() if exercice_id else None
-        bilan = service.bilan(exercice=exercice)
-        return Response(bilan)
+        return Response(BilanService.bilan(exercice=self._exercice(request)))
 
     @action(detail=False, methods=["get"])
     def compte_resultat(self, request):
-        exercice_id = request.query_params.get("exercice")
-        service = BilanService()
-        exercice = ExerciceComptable.objects.filter(pk=exercice_id).first() if exercice_id else None
-        resultat = service.compte_resultat(exercice=exercice)
-        return Response(resultat)
+        return Response(BilanService.compte_resultat(exercice=self._exercice(request)))
 
 
-class JournalComptableViewSet(viewsets.ModelViewSet):
+class JournalComptableViewSet(TenantScopedViewSet, viewsets.ReadOnlyModelViewSet):
+    model = JournalComptable
     queryset = JournalComptable.objects.all()
     serializer_class = JournalComptableSerializer
-    filterset_fields = ["code", "actif"]
-    search_fields = ["code", "libelle"]
 
     @action(detail=True, methods=["get"])
     def ecritures(self, request, pk=None):
         journal = self.get_object()
-        ecritures = EcritureComptable.objects.filter(journal=journal)
-        page = self.paginate_queryset(ecritures)
+        qs = EcritureComptable.objects.filter(
+            journal=journal, entreprise_id=self.tenant_id
+        ).order_by("-date_ecriture", "-pk")
+        page = self.paginate_queryset(qs)
         if page is not None:
-            serializer = EcritureComptableSerializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        serializer = EcritureComptableSerializer(ecritures, many=True)
-        return Response(serializer.data)
+            return self.get_paginated_response(
+                EcritureComptableSerializer(
+                    page, many=True, context=self.get_serializer_context()
+                ).data
+            )
+        return Response(
+            EcritureComptableSerializer(
+                qs, many=True, context=self.get_serializer_context()
+            ).data
+        )
 
 
-class ExerciceComptableViewSet(viewsets.ModelViewSet):
+class ExerciceComptableViewSet(TenantScopedViewSet, viewsets.ReadOnlyModelViewSet):
+    model = ExerciceComptable
     queryset = ExerciceComptable.objects.all()
     serializer_class = ExerciceComptableSerializer
-    filterset_fields = ["cloture", "societe"]
-    search_fields = ["code", "libelle"]
-
-    @action(detail=True, methods=["post"])
-    def cloturer(self, request, pk=None):
-        exercice = self.get_object()
-        try:
-            ExerciceService.cloturer(exercice, request.user)
-            return Response({"status": "clôturé"})
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=True, methods=["post"])
-    def rouvrir(self, request, pk=None):
-        exercice = self.get_object()
-        try:
-            ExerciceService.rouvrir(exercice)
-            return Response({"status": "rouvert"})
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ConfigurationComptableViewSet(viewsets.ModelViewSet):
+class ConfigurationComptableViewSet(TenantScopedViewSet, viewsets.ReadOnlyModelViewSet):
+    model = ConfigurationComptable
     queryset = ConfigurationComptable.objects.all()
     serializer_class = ConfigurationComptableSerializer
 
 
-class ImmobilisationViewSet(viewsets.ModelViewSet):
-    queryset = Immobilisation.objects.prefetch_related("plan_amortissement").all()
+class ImmobilisationViewSet(TenantScopedViewSet, viewsets.ReadOnlyModelViewSet):
+    model = Immobilisation
+    queryset = Immobilisation.objects.all()
     serializer_class = ImmobilisationSerializer
-    filterset_fields = ["statut", "mode_amortissement", "societe"]
-    search_fields = ["designation", "code"]
-
-    @action(detail=True, methods=["post"])
-    def calculer_amortissement(self, request, pk=None):
-        immobilisation = self.get_object()
-        try:
-            AmortissementService.generer_plan_amortissement(immobilisation, request.user)
-            return Response({"status": "plan généré"})
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=True, methods=["post"])
-    def comptabiliser_amortissement(self, request, pk=None):
-        immobilisation = self.get_object()
-        try:
-            AmortissementService.comptabiliser_amortissement(immobilisation, request.user)
-            return Response({"status": "amortissement comptabilisé"})
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
