@@ -6,6 +6,9 @@ from django.utils import timezone
 from ..models import ReleveBancaire, LigneReleveBancaire
 from ..models import EcritureComptable, LigneEcritureComptable
 from ..signals.ecriture import rapprochement_valide
+from ..models import CompteComptable
+from ..tenancy import require_tenant, check_owned
+from django.core.exceptions import ValidationError
 
 
 class RapprochementService:
@@ -15,8 +18,13 @@ class RapprochementService:
     @transaction.atomic
     def creer_releve(compte_comptable_code, date_debut, date_fin,
                      solde_ouverture, solde_cloture):
+        tenant = require_tenant()
+        if not CompteComptable.objects.filter(
+            entreprise_id=tenant, code=compte_comptable_code, actif=True
+        ).exists():
+            raise ValidationError("Compte bancaire absent du plan de l'entreprise.")
         return ReleveBancaire.objects.create(
-            compte_comptable_code=compte_comptable_code,
+            entreprise_id=tenant, compte_comptable_code=compte_comptable_code,
             date_debut=date_debut,
             date_fin=date_fin,
             solde_ouverture=solde_ouverture,
@@ -25,6 +33,9 @@ class RapprochementService:
 
     @staticmethod
     def ajouter_ligne(releve, date_operation, libelle, montant, sens, reference=""):
+        check_owned(releve, what="Relevé bancaire")
+        if releve.statut != "BROUILLON":
+            raise ValidationError("Relevé déjà rapproché.")
         return LigneReleveBancaire.objects.create(
             releve=releve,
             date_operation=date_operation,
@@ -36,6 +47,9 @@ class RapprochementService:
 
     @staticmethod
     def pointer(releve, ligne_id):
+        check_owned(releve, what="Relevé bancaire")
+        if releve.statut != "BROUILLON":
+            raise ValidationError("Relevé déjà rapproché.")
         ligne = releve.lignes.filter(id=ligne_id).first()
         if ligne:
             ligne.pointe = True
@@ -44,6 +58,9 @@ class RapprochementService:
 
     @staticmethod
     def depointer(releve, ligne_id):
+        check_owned(releve, what="Relevé bancaire")
+        if releve.statut != "BROUILLON":
+            raise ValidationError("Relevé déjà rapproché.")
         ligne = releve.lignes.filter(id=ligne_id).first()
         if ligne:
             ligne.pointe = False
@@ -53,6 +70,9 @@ class RapprochementService:
     @staticmethod
     @transaction.atomic
     def valider(releve, user=None):
+        check_owned(releve, what="Relevé bancaire")
+        if releve.statut != "BROUILLON":
+            raise ValidationError("Relevé déjà rapproché.")
         non_pointees = releve.lignes.filter(pointe=False)
         if non_pointees.exists():
             raise ValueError(f"{non_pointees.count()} ligne(s) non pointée(s)")

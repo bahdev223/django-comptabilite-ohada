@@ -1,12 +1,18 @@
 from django.core.management.base import BaseCommand, CommandError
 
 from comptabilite_ohada.services.initialisation_service import InitialisationService
+from comptabilite_ohada.tenancy import tenant_scope
 
 
 class Command(BaseCommand):
     help = "Charge le plan comptable SYSCOHADA fourni avec le paquet."
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "--entreprise-id",
+            required=True,
+            help="Identifiant entreprise vérifié par l'opérateur.",
+        )
         parser.add_argument(
             "--ecraser",
             action="store_true",
@@ -15,9 +21,10 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        resultat = InitialisationService.charger_plan_comptable(
-            force=options["ecraser"]
-        )
+        with tenant_scope(options["entreprise_id"]):
+            resultat = InitialisationService.charger_plan_comptable(
+                force=options["ecraser"]
+            )
         if not resultat.get("success"):
             raise CommandError(resultat.get("error", "Initialisation impossible"))
         self.stdout.write(

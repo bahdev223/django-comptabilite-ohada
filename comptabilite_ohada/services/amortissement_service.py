@@ -2,6 +2,8 @@ from decimal import Decimal
 from datetime import date
 
 from django.db import transaction
+from django.core.exceptions import ValidationError
+from ..tenancy import require_tenant, check_owned
 
 from ..models import Immobilisation, PlanAmortissement
 from .ecriture_service import EcritureService
@@ -14,8 +16,11 @@ class AmortissementService:
     def creer_immobilisation(code, libelle, type_immo, date_acquisition,
                              valeur_originale, duree_ans, compte_immo,
                              compte_amort, compte_charge, valeur_residuelle=0):
+        tenant = require_tenant()
+        for field in (compte_immo, compte_amort, compte_charge):
+            check_owned(field, tenant, what="Compte d'immobilisation")
         return Immobilisation.objects.create(
-            code=code, libelle=libelle, type_immobilisation=type_immo,
+            entreprise_id=tenant, code=code, libelle=libelle, type_immobilisation=type_immo,
             date_acquisition=date_acquisition,
             valeur_originale=valeur_originale,
             valeur_residuelle=valeur_residuelle,
@@ -27,6 +32,11 @@ class AmortissementService:
 
     @staticmethod
     def generer_plan(immobilisation):
+        check_owned(immobilisation, what="Immobilisation")
+        if PlanAmortissement.objects.filter(
+            immobilisation=immobilisation, ecriture_generee=True
+        ).exists():
+            raise ValidationError("Un plan comptabilisé ne peut être régénéré.")
         PlanAmortissement.objects.filter(immobilisation=immobilisation).delete()
 
         for annee in range(immobilisation.duree_ans):
@@ -55,10 +65,12 @@ class AmortissementService:
     @staticmethod
     @transaction.atomic
     def generer_ecritures_amortissement(periode=None, user=None):
+        tenant = require_tenant()
         if periode is None:
             periode = date.today().replace(day=1)
 
-        plans = PlanAmortissement.objects.filter(
+        plans = PlanAmortissement.objects.select_for_update().filter(
+            immobilisation__entreprise_id=tenant,
             periode=periode, ecriture_generee=False,
         ).select_related("immobilisation")
 
