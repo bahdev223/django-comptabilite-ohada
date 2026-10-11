@@ -1,146 +1,176 @@
-from decimal import Decimal
-from datetime import date, datetime
+"""Tenant-scoped SYSCOHADA double-entry entry point.
 
+All public service calls require a trusted tenant_scope() or an explicit tenant
+identifier. No unscoped account, journal, fiscal period or ledger write is allowed.
+"""
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
+
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from ..models import EcritureComptable, LigneEcritureComptable, JournalComptable
-from ..models import CompteComptable, ExerciceComptable
-from ..signals.ecriture import ecriture_validee
-from django.core.exceptions import ValidationError
+from ..models import (
+    CompteComptable, EcritureComptable, ExerciceComptable,
+    JournalComptable, LigneEcritureComptable,
+)
+from ..tenancy import check_owned, require_tenant
+
+
+def _operation_date(value):
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value)
+        except ValueError as exc:
+            raise ValidationError("Date d'écriture ISO invalide.") from exc
+    raise ValidationError("Date d'écriture obligatoire.")
+
+
+def _montant(value):
+    try:
+        number = Decimal(str(value if value is not None else "0"))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValidationError("Montant comptable invalide.") from exc
+    if not number.is_finite() or number < 0 or number.as_tuple().exponent < -2:
+        raise ValidationError("Montant négatif, non fini ou trop précis.")
+    return number
 
 
 class EcritureService:
-    """Service central de création d'écritures comptables — point d'entrée unique."""
-
-    # ─── Helpers ──────────────────────────────────────────────
+    """Central ledger service: strict tenant, balances, dates and active accounts."""
 
     @classmethod
-    def get_exercice(cls, date_operation=None):
-        if date_operation is None:
-            date_operation = date.today()
-        exercice = ExerciceComptable.objects.filter(
-            date_debut__lte=date_operation,
-            date_fin__gte=date_operation,
-            cloture=False,
-        ).first()
-        if not exercice:
-            exercice = ExerciceComptable.objects.filter(cloture=False).first()
-        return exercice
+    def get_exercice(cls, date_operation=None, entreprise_id=None):
+        tenant = require_tenant(entreprise_id)
+        day = _operation_date(date_operation or date.today())
+        exercises = list(
+            ExerciceComptable.objects.filter(
+                entreprise_id=tenant,
+                date_debut__lte=day,
+                date_fin__gte=day,
+                cloture=False,
+            ).order_by("pk")[:2]
+        )
+        if len(exercises) > 1:
+            raise ValidationError("Plusieurs exercices ouverts couvrent cette date.")
+        return exercises[0] if exercises else None
 
     @classmethod
-    def get_or_create_journal(cls, code, libelle, type_journal):
+    def get_or_create_journal(cls, code, libelle, type_journal, entreprise_id=None):
+        tenant = require_tenant(entreprise_id)
         journal, _ = JournalComptable.objects.get_or_create(
+            entreprise_id=tenant,
             code=code,
             defaults={"libelle": libelle, "type_journal": type_journal, "actif": True},
         )
+        if not journal.actif:
+            raise ValidationError("Journal comptable inactif.")
         return journal
 
     @classmethod
-    def get_compte(cls, code_or_id):
+    def get_compte(cls, code_or_id, entreprise_id=None):
+        tenant = require_tenant(entreprise_id)
         if code_or_id is None:
             return None
+        base = CompteComptable.objects.filter(entreprise_id=tenant, actif=True)
         if isinstance(code_or_id, int):
-            return CompteComptable.objects.filter(id=code_or_id, actif=True).first()
-        compte = CompteComptable.objects.filter(code=str(code_or_id), actif=True).first()
-        if compte:
-            return compte
-        if isinstance(code_or_id, str) and code_or_id.isdigit():
-            return CompteComptable.objects.filter(id=int(code_or_id), actif=True).first()
-        return None
+            return base.filter(pk=code_or_id).first()
+        # A numeric account code is never silently treated as a database PK.
+        return base.filter(code=str(code_or_id)).first()
 
     @classmethod
-    def get_compte_par_type_caisse(cls, type_caisse):
+    def get_compte_par_type_caisse(cls, type_caisse, entreprise_id=None):
+        require_tenant(entreprise_id)
         mapping = {"ESPECES": "571", "BANQUE": "521", "MOBILE_MONEY": "581"}
-        code = mapping.get(type_caisse, "571")
-        return cls.get_compte(code)
+        return cls.get_compte(mapping.get(type_caisse, "571"))
 
     @classmethod
     def generer_reference(cls, prefix, dt=None, seq=None):
-        if dt is None:
-            dt = datetime.now()
-        if seq:
+        dt = dt or timezone.now()
+        if seq is not None:
             return f"{prefix}-{dt.strftime('%Y%m%d')}-{seq}"
         return f"{prefix}-{dt.strftime('%Y%m%d%H%M%S%f')}"
 
     @classmethod
     @transaction.atomic
-    def creer_ecriture(cls, reference, date_ecriture, libelle, journal, lignes,
-                       exercice=None, piece=None, validee=True, user=None):
+    def creer_ecriture(
+        cls, reference, date_ecriture, libelle, journal, lignes,
+        exercice=None, piece=None, validee=True, user=None, entreprise_id=None,
+    ):
+        tenant = require_tenant(entreprise_id)
+        day = _operation_date(date_ecriture)
+        if not isinstance(reference, str) or not reference.strip() or len(reference) > 50:
+            raise ValidationError("Référence comptable obligatoire (50 caractères maximum).")
+        check_owned(journal, tenant, what="Journal")
+        if not journal.actif:
+            raise ValidationError("Journal inactif.")
+
         if exercice is None:
-            exercice = cls.get_exercice(date_ecriture)
-        # get_exercice rend None quand aucun exercice ouvert ne couvre la
-        # date. L'ecriture partait alors avec exercice=None et l'echec
-        # remontait en IntegrityError depuis la base, apres qu'une
-        # operation de tresorerie avait deja pu etre enregistree. On
-        # refuse ici, avec un message qui dit quoi faire.
+            exercice = cls.get_exercice(day, entreprise_id=tenant)
         if exercice is None:
+            raise ValidationError("Aucun exercice ouvert ne couvre la date d'écriture.")
+        check_owned(exercice, tenant, what="Exercice")
+        # Serialize ledger posting and fiscal closure on the same fiscal-year lock.
+        exercice = ExerciceComptable.objects.select_for_update().get(
+            pk=exercice.pk, entreprise_id=tenant
+        )
+        if exercice.cloture or not (exercice.date_debut <= day <= exercice.date_fin):
+            raise ValidationError("Exercice clôturé ou date hors exercice.")
+
+        prepared = []
+        for index, data in enumerate(lignes, start=1):
+            if not isinstance(data, dict):
+                raise ValidationError(f"Ligne {index} invalide.")
+            account = data.get("compte")
+            if account is None:
+                raise ValidationError(f"Ligne {index} : compte comptable introuvable.")
+            check_owned(account, tenant, what=f"Compte de la ligne {index}")
+            if not CompteComptable.objects.filter(
+                pk=account.pk, entreprise_id=tenant, actif=True, est_mouvement=True
+            ).exists():
+                raise ValidationError(f"Ligne {index} : compte non mouvementable ou inactif.")
+            debit, credit = _montant(data.get("debit")), _montant(data.get("credit"))
+            if (debit > 0) == (credit > 0):
+                raise ValidationError(f"Ligne {index} : un seul sens et montant positif requis.")
+            prepared.append({
+                "compte": account,
+                "debit": debit,
+                "credit": credit,
+                "libelle": data.get("libelle") or libelle,
+            })
+
+        if len(prepared) < 2:
+            raise ValidationError("Une écriture doit comporter au moins deux lignes.")
+        total_debit = sum((line["debit"] for line in prepared), Decimal("0.00"))
+        total_credit = sum((line["credit"] for line in prepared), Decimal("0.00"))
+        if total_debit != total_credit or total_debit <= 0:
             raise ValidationError(
-                "Aucun exercice comptable ouvert ne couvre la date "
-                f"{date_ecriture}. Ouvrez un exercice avant d'enregistrer "
-                "des ecritures."
+                f"Ecriture desequilibree : debit {total_debit}, credit {total_credit}."
             )
 
-        # Une ecriture doit etre equilibree : c'est la regle fondatrice de
-        # la partie double. Elle etait exposee par est_equilibree mais
-        # jamais appliquee, si bien qu'une ecriture fausse pouvait etre
-        # enregistree ET marquee validee. On refuse avant toute creation,
-        # la transaction n'ayant alors rien a annuler.
-        total_debit = sum(
-            (Decimal(str(ligne.get("debit", 0) or 0)) for ligne in lignes), Decimal("0.00")
-        )
-        total_credit = sum(
-            (Decimal(str(ligne.get("credit", 0) or 0)) for ligne in lignes), Decimal("0.00")
-        )
-        if total_debit != total_credit:
-            raise ValidationError(
-                f"Ecriture desequilibree : debit {total_debit}, credit {total_credit}. "
-                f"L'ecart est de {abs(total_debit - total_credit)}."
-            )
-        if total_debit == 0:
-            raise ValidationError("Une ecriture sans montant ne peut pas etre enregistree.")
-
-        # get_compte rend None quand le code n'existe pas au plan comptable.
-        # La ligne partait alors avec compte=None et se faisait rejeter par
-        # la contrainte NOT NULL, bien apres le point ou l'on aurait pu
-        # expliquer le probleme. On nomme le compte manquant.
-        for position, ligne in enumerate(lignes, start=1):
-            if ligne.get("compte") is None:
-                raise ValidationError(
-                    f"Ligne {position} de l'ecriture « {libelle} » : compte "
-                    "comptable introuvable. Verifiez que le code existe et "
-                    "qu'il est actif au plan comptable."
-                )
-
-        ecriture = EcritureComptable.objects.create(
-            reference=reference,
-            date_ecriture=date_ecriture,
+        entry = EcritureComptable.objects.create(
+            entreprise_id=tenant,
+            reference=reference.strip(),
+            date_ecriture=day,
             libelle=libelle,
             journal=journal,
-            piece=piece,
             exercice=exercice,
-            validee=validee,
-            created_by=user.username if hasattr(user, "username") and user else str(user or ""),
+            piece=piece,
+            validee=False,
+            created_by=(
+                user.get_username() if hasattr(user, "get_username") else str(user or "")
+            ),
         )
-
-        for ligne in lignes:
-            LigneEcritureComptable.objects.create(
-                ecriture=ecriture,
-                compte=ligne["compte"],
-                debit=ligne.get("debit", Decimal("0.00")),
-                credit=ligne.get("credit", Decimal("0.00")),
-                libelle=ligne.get("libelle", libelle),
-            )
-
+        for line in prepared:
+            LigneEcritureComptable.objects.create(ecriture=entry, **line)
         if validee:
-            ecriture_validee.send(
-                sender=EcritureService,
-                instance=ecriture,
-                lignes=lignes,
-                user=user,
-            )
-
-        return ecriture
+            from .exercice_service import ValidationService
+            ValidationService.valider_ecriture(entry, user=user, entreprise_id=tenant)
+        return entry
 
     # ─── Ventes ───────────────────────────────────────────────
 
@@ -345,6 +375,7 @@ class EcritureService:
     @classmethod
     @transaction.atomic
     def creer_ecriture_amortissement(cls, plan, user=None):
+        check_owned(plan.immobilisation, what="Immobilisation")
         immobilisation = plan.immobilisation
         journal = cls.get_or_create_journal("OD", "Opérations Diverses", "OD")
         ref = f"AMORT-{immobilisation.code}-{plan.periode.strftime('%Y%m')}"
@@ -376,6 +407,7 @@ class EcritureService:
     @classmethod
     @transaction.atomic
     def creer_ecriture_cloture_exercice(cls, exercice, resultat, user=None):
+        check_owned(exercice, what="Exercice")
         journal = cls.get_or_create_journal("CL", "Clôture", "OD")
         ref = f"RES-{exercice.code}"
         libelle = f"Affectation résultat exercice {exercice.code}"
