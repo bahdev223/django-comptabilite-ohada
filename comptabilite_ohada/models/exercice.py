@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import ValidationError
 from ..tenancy import require_tenant
 
 
@@ -29,7 +30,14 @@ class ExerciceComptable(models.Model):
         ordering = ["-date_debut"]
 
     def save(self, *args, **kwargs):
-        self.entreprise_id = require_tenant(self.entreprise_id or None)
+        if not self.entreprise_id:
+            if self.pk is not None:
+                raise ValidationError(
+                    "Enregistrement historique sans entreprise : reprise auditée obligatoire."
+                )
+            self.entreprise_id = require_tenant()
+        else:
+            require_tenant(self.entreprise_id)
         return super().save(*args, **kwargs)
 
     def __str__(self):

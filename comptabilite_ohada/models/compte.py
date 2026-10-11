@@ -89,7 +89,14 @@ class CompteComptable(models.Model):
     def save(self, *args, **kwargs):
         # Legacy rows with entreprise_id="" remain quarantined.
         # New records may inherit ONLY an explicit server-side tenant_scope.
-        self.entreprise_id = require_tenant(self.entreprise_id or None)
+        if not self.entreprise_id:
+            if self.pk is not None:
+                raise ValidationError(
+                    "Enregistrement historique sans entreprise : reprise auditée obligatoire."
+                )
+            self.entreprise_id = require_tenant()
+        else:
+            require_tenant(self.entreprise_id)
         self.clean()
         return super().save(*args, **kwargs)
 

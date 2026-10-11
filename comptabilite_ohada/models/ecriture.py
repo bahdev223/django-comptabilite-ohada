@@ -75,7 +75,14 @@ class EcritureComptable(models.Model):
                 raise ValidationError("Une écriture ne peut pas être modifiée dans un exercice clôturé.")
 
     def save(self, *args, **kwargs):
-        self.entreprise_id = require_tenant(self.entreprise_id or None)
+        if not self.entreprise_id:
+            if self.pk is not None:
+                raise ValidationError(
+                    "Enregistrement historique sans entreprise : reprise auditée obligatoire."
+                )
+            self.entreprise_id = require_tenant()
+        else:
+            require_tenant(self.entreprise_id)
         # No ORM insert of a pre-validated empty entry. Only ValidationService
         # may perform the transition from draft to validated.
         if self.pk is None and self.validee:
