@@ -14,16 +14,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AlterField(
-            model_name="comptecomptable",
-            name="parent",
-            field=models.ForeignKey(
-                to="comptabilite_ohada.comptecomptable",
-                on_delete=django.db.models.deletion.PROTECT,
-                related_name="enfants",
-                blank=True, null=True, verbose_name="Compte parent",
-            ),
-        ),
-        migrations.AlterField(
             model_name="ecriturecomptable",
             name="journal",
             field=models.ForeignKey(

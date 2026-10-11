@@ -408,23 +408,7 @@ class EcritureService:
     @transaction.atomic
     def creer_ecriture_cloture_exercice(cls, exercice, resultat, user=None):
         check_owned(exercice, what="Exercice")
-        journal = cls.get_or_create_journal("CL", "Clôture", "OD")
-        ref = f"RES-{exercice.code}"
-        libelle = f"Affectation résultat exercice {exercice.code}"
-        if resultat >= 0:
-            lignes = [
-                {"compte": cls.get_compte("129"), "debit": resultat,
-                 "libelle": f"Bénéfice {exercice.code}"},
-                {"compte": cls.get_compte("101"), "credit": resultat,
-                 "libelle": f"Capital - report bénéfice {exercice.code}"},
-            ]
-        else:
-            r = abs(resultat)
-            lignes = [
-                {"compte": cls.get_compte("101"), "debit": r,
-                 "libelle": f"Imputation perte {exercice.code}"},
-                {"compte": cls.get_compte("129"), "credit": r,
-                 "libelle": f"Perte {exercice.code}"},
-            ]
-        return cls.creer_ecriture(ref, exercice.date_fin, libelle, journal, lignes,
-                                  exercice=exercice, user=user)
+        raise ValidationError(
+            "Génération d'écriture de clôture désactivée jusqu'à "
+            "la validation des règles SYSCOHADA."
+        )
