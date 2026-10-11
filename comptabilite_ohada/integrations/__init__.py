@@ -1,25 +1,20 @@
+"""Unsafe automatic accounting signals are disabled.
+
+Cross-service integrations are owned by the standalone accounting service.
+No optional django-comptes import or signal registration takes place.
 """
-Intégrations — ponts entre django-comptabilite-ohada et les autres packages.
-
-Chaque fichier dans ce dossier écoute les signaux d'un autre package Django
-et crée les écritures comptables correspondantes.
-
-Principe :
-    - django-comptes émet "mouvement_valide"
-    - integrations/django_comptes.py écoute et crée l'écriture
-    - Aucun couplage direct entre les packages
-"""
-
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 
 
 def connect_integrations():
-    """Connecte toutes les intégrations activées."""
-    from .django_comptes import connect as connect_comptes
-
     config = getattr(settings, "COMPTABILITE_OHADA", {})
-    if config.get("COMPTES_INTEGRATION_ENABLED", True):
-        try:
-            connect_comptes()
-        except ImportError:
-            pass
+    if config.get("COMPTES_INTEGRATION_ENABLED", False):
+        raise ImproperlyConfigured(
+            "COMPTES_INTEGRATION_ENABLED is unsafe and no longer supported. "
+            "Publish an explicit, tenant-scoped and idempotent accounting event."
+        )
+    if config.get("STOCK_INTEGRATION_ENABLED", False):
+        raise ImproperlyConfigured(
+            "STOCK_INTEGRATION_ENABLED is unsupported: use the accounting event API."
+        )
