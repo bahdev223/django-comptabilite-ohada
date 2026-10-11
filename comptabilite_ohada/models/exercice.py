@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from ..tenancy import require_tenant
 
 
 class ExerciceComptable(models.Model):
@@ -26,6 +27,10 @@ class ExerciceComptable(models.Model):
         verbose_name = _("Exercice comptable")
         verbose_name_plural = _("Exercices comptables")
         ordering = ["-date_debut"]
+
+    def save(self, *args, **kwargs):
+        self.entreprise_id = require_tenant(self.entreprise_id or None)
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Exercice {self.code} ({self.date_debut} → {self.date_fin})"

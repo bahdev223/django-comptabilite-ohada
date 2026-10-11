@@ -1,3 +1,4 @@
+from .tenant_test_case import TenantTestCase
 from django.test import TestCase
 from django.contrib.auth.models import User
 
@@ -6,9 +7,10 @@ from ..models import (
     EcritureComptable, LigneEcritureComptable,
 )
 from ..services.journal_service import BalanceService
+from ..services.exercice_service import ValidationService
 
 
-class BalanceServiceTest(TestCase):
+class BalanceServiceTest(TenantTestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="compta", password="test1234")
         self.journal = JournalComptable.objects.create(
@@ -37,7 +39,7 @@ class BalanceServiceTest(TestCase):
         ecriture_v = EcritureComptable.objects.create(
             journal=self.journal, exercice=self.exercice,
             date_ecriture="2025-06-01", reference="VN-001",
-            libelle="Vente", validee=True, created_by=self.user,
+            libelle="Vente", validee=False, created_by=self.user.username,
         )
         LigneEcritureComptable.objects.create(
             ecriture=ecriture_v, compte=self.compte_caisse, debit=100000,
@@ -46,6 +48,7 @@ class BalanceServiceTest(TestCase):
             ecriture=ecriture_v, compte=self.compte_produit, credit=100000,
         )
 
+        ValidationService.valider_ecriture(ecriture_v)
         service = BalanceService()
         balance = service.balance(exercice=self.exercice)
         self.assertGreaterEqual(len(balance), 2)

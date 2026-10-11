@@ -1,3 +1,4 @@
+from .tenant_test_case import TenantTestCase
 from django.test import TestCase
 
 from ..models import (
@@ -6,7 +7,7 @@ from ..models import (
 from ..services.initialisation_service import InitialisationService
 
 
-class InitialisationServiceTest(TestCase):
+class InitialisationServiceTest(TenantTestCase):
     def setUp(self):
         self.service = InitialisationService()
 

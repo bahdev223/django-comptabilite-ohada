@@ -1,3 +1,4 @@
+from .tenant_test_case import TenantTestCase
 from django.test import TestCase
 from django.contrib.auth.models import User
 
@@ -7,7 +8,7 @@ from ..models import (
 )
 
 
-class CompteComptableModelTest(TestCase):
+class CompteComptableModelTest(TenantTestCase):
     def setUp(self):
         self.compte = CompteComptable.objects.create(
             code="571",
@@ -34,7 +35,7 @@ class CompteComptableModelTest(TestCase):
         self.assertEqual(BalanceService.solde_compte(self.compte), 0)
 
 
-class EcritureComptableModelTest(TestCase):
+class EcritureComptableModelTest(TenantTestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="compta", password="test1234")
         self.journal = JournalComptable.objects.create(
@@ -88,7 +89,7 @@ class EcritureComptableModelTest(TestCase):
         self.assertNotEqual(total_debit, total_credit)
 
 
-class ExerciceComptableModelTest(TestCase):
+class ExerciceComptableModelTest(TenantTestCase):
     def test_exercice_ouvert_par_defaut(self):
         exercice = ExerciceComptable.objects.create(
             code="2025",

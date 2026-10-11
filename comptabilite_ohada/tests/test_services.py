@@ -1,3 +1,4 @@
+from .tenant_test_case import TenantTestCase
 from django.test import TestCase
 from django.contrib.auth.models import User
 
@@ -6,17 +7,20 @@ from ..models import (
     EcritureComptable, LigneEcritureComptable,
 )
 from ..services.ecriture_service import EcritureService
+from ..services.exercice_service import ValidationService
+from datetime import date
 
 
-class EcritureServiceTest(TestCase):
+class EcritureServiceTest(TenantTestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="compta", password="test1234")
         self.journal = JournalComptable.objects.create(
             code="VN", libelle="Ventes", type_journal="VN"
         )
+        year = date.today().year
         self.exercice = ExerciceComptable.objects.create(
-            code="2025",
-            date_debut="2025-01-01", date_fin="2025-12-31",
+            code=str(year),
+            date_debut=date(year, 1, 1), date_fin=date(year, 12, 31),
         )
         self.compte_caisse = CompteComptable.objects.create(
             code="571", libelle="Caisse", nature="DEBIT", type_compte="compte",
@@ -42,7 +46,7 @@ class EcritureServiceTest(TestCase):
     def test_valider_ecriture(self):
         ecriture = EcritureComptable.objects.create(
             journal=self.journal, exercice=self.exercice,
-            date_ecriture="2025-06-01", reference="VN-001",
+            date_ecriture=date.today(), reference="VN-001",
             libelle="Vente test", validee=False,
             # `created_by` est un champ TEXTE : il garde un nom, pas une
             # cle etrangere. Un compte supprime ne doit pas emporter
@@ -56,7 +60,6 @@ class EcritureServiceTest(TestCase):
             ecriture=ecriture, compte=self.compte_produit, credit=50000,
         )
         self.assertFalse(ecriture.validee)
-        ecriture.validee = True
-        ecriture.save()
+        ValidationService.valider_ecriture(ecriture)
         ecriture.refresh_from_db()
         self.assertTrue(ecriture.validee)

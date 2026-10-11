@@ -1,3 +1,4 @@
+from .tenant_test_case import TenantTestCase
 # -*- coding: utf-8 -*-
 """Garde-fous de creer_ecriture.
 
@@ -27,7 +28,7 @@ from ..models import (
 from ..services.ecriture_service import EcritureService
 
 
-class GardeFousEcritureTest(TestCase):
+class GardeFousEcritureTest(TenantTestCase):
     def setUp(self):
         self.journal = JournalComptable.objects.create(
             code="CA", libelle="Caisse", type_journal="CAISSE"

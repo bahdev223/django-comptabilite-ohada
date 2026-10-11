@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from ..tenancy import require_tenant
 
 
 class JournalComptable(models.Model):
@@ -35,6 +36,10 @@ class JournalComptable(models.Model):
         verbose_name = _("Journal comptable")
         verbose_name_plural = _("Journaux comptables")
         ordering = ["code"]
+
+    def save(self, *args, **kwargs):
+        self.entreprise_id = require_tenant(self.entreprise_id or None)
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.code} - {self.libelle}"

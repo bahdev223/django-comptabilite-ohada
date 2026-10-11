@@ -1,3 +1,4 @@
+from .tenant_test_case import TenantTestCase
 """
 La regle fondatrice : une ecriture desequilibree ne doit JAMAIS etre validee.
 
@@ -8,6 +9,7 @@ CHAQUE porte, et l'on regarde si l'une d'elles cede.
 from decimal import Decimal
 
 from django.test import TestCase
+from django.core.exceptions import ValidationError
 
 from comptabilite_ohada.models import (
     CompteComptable, EcritureComptable, ExerciceComptable, JournalComptable,
@@ -17,7 +19,7 @@ from comptabilite_ohada.services.ecriture_service import EcritureService
 from comptabilite_ohada.services.exercice_service import ValidationService
 
 
-class UneEcritureFausseNePasseParAucunePorte(TestCase):
+class UneEcritureFausseNePasseParAucunePorte(TenantTestCase):
     def setUp(self):
         self.exercice = ExerciceComptable.objects.create(
             code="2026", date_debut="2026-01-01", date_fin="2026-12-31",
@@ -66,7 +68,7 @@ class UneEcritureFausseNePasseParAucunePorte(TestCase):
             LigneEcritureComptable.objects.create(ecriture=ecriture, **ligne)
 
         self.assertFalse(ecriture.est_equilibree)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValidationError):
             ValidationService.valider_ecriture(ecriture)
 
         ecriture.refresh_from_db()

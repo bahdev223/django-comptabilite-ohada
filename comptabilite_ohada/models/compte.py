@@ -87,7 +87,10 @@ class CompteComptable(models.Model):
             check_owned(self.parent, tenant, what="Compte parent")
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        # Legacy rows with entreprise_id="" remain quarantined.
+        # New records may inherit ONLY an explicit server-side tenant_scope.
+        self.entreprise_id = require_tenant(self.entreprise_id or None)
+        self.clean()
         return super().save(*args, **kwargs)
 
     def __str__(self):
