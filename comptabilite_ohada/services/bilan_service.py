@@ -32,7 +32,7 @@ class BilanService:
             ecriture__date_ecriture__lte=date_arret,
         )
         if exercice:
-            lignes = lignes.filter(ecriture__date_ecriture__gte=exercice.date_debut)
+            lignes = lignes.filter(ecriture__exercice=exercice, ecriture__date_ecriture__gte=exercice.date_debut)
 
         actif = {}
         passif = {}
@@ -79,6 +79,8 @@ class BilanService:
         lignes = scoped_lines(entreprise_id).filter(
             ecriture__validee=True,
         )
+        if exercice:
+            lignes = lignes.filter(ecriture__exercice=exercice)
         if date_debut:
             lignes = lignes.filter(ecriture__date_ecriture__gte=date_debut)
         if date_fin:

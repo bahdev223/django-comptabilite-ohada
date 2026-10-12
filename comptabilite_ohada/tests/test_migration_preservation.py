@@ -36,4 +36,5 @@ class HistoricalMigrationTests(TransactionTestCase):
             self.assertEqual(apps.get_model('comptabilite_ohada', 'LigneEcritureComptable').objects.get(pk=line.pk).debit, Decimal('100.00'))
             self.assertTrue(apps.get_model('comptabilite_ohada', 'EcritureComptable').objects.get(pk=entry.pk).validee)
         finally:
-            MigrationExecutor(connection).migrate(after)
+            executor = MigrationExecutor(connection)
+            executor.migrate(executor.loader.graph.leaf_nodes())

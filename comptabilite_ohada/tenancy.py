@@ -33,6 +33,16 @@ def scoped_lines(entreprise_id):
     )
 
 
+def scoped_entries(entreprise_id):
+    """Never return related metadata from inconsistent historical tenant graphs."""
+    from .models import EcritureComptable, LigneEcritureComptable
+    tenant = require_enterprise(entreprise_id)
+    foreign_lines = LigneEcritureComptable.objects.exclude(compte__entreprise_id=tenant)
+    return EcritureComptable.objects.filter(
+        entreprise_id=tenant, journal__entreprise_id=tenant, exercice__entreprise_id=tenant,
+    ).exclude(lignes__in=foreign_lines)
+
+
 def money(value):
     try:
         amount = Decimal(str(value if value is not None else 0))

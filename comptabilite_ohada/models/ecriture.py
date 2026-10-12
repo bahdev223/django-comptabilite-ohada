@@ -110,7 +110,7 @@ class LigneEcritureComptable(models.Model):
     objects = AccountingQuerySet.as_manager()
 
     ecriture = models.ForeignKey(
-        EcritureComptable, on_delete=models.CASCADE, related_name="lignes",
+        EcritureComptable, on_delete=models.PROTECT, related_name="lignes",
         verbose_name=_("Écriture"),
     )
     compte = models.ForeignKey(
@@ -150,7 +150,10 @@ class LigneEcritureComptable(models.Model):
         entry = EcritureComptable.objects.select_for_update().get(pk=entry.pk)
         if entry.validee or exercise.cloture:
             raise ValidationError('Lignes validées ou exercice clos immuables.')
-        require_owned(self.compte, entry.entreprise_id)
+        account = require_owned(self.compte, entry.entreprise_id)
+        if not account.actif:
+            raise ValidationError('Compte comptable inactif.')
+        self.compte = account
         self.debit, self.credit = money(self.debit), money(self.credit)
         if bool(self.debit) == bool(self.credit):
             raise ValidationError('Une seule colonne positive par ligne.')

@@ -1,4 +1,4 @@
-from ..tenancy import require_enterprise, require_owned, scoped_lines
+from ..tenancy import require_enterprise, require_owned, scoped_lines, scoped_entries
 from decimal import Decimal
 from datetime import date, timedelta
 
@@ -23,6 +23,7 @@ class DashboardService:
         base = scoped_lines(entreprise_id).filter(ecriture__validee=True)
         if exercice:
             base = base.filter(
+                ecriture__exercice=exercice,
                 ecriture__date_ecriture__gte=exercice.date_debut,
                 ecriture__date_ecriture__lte=exercice.date_fin,
             )
@@ -44,7 +45,7 @@ class DashboardService:
         charges = (charge_totals['d'] or Decimal('0')) - (charge_totals['c'] or Decimal('0'))
         produits = (product_totals['c'] or Decimal('0')) - (product_totals['d'] or Decimal('0'))
 
-        nb_ecritures = EcritureComptable.objects.filter(entreprise_id=entreprise_id).filter(validee=True)
+        nb_ecritures = scoped_entries(entreprise_id).filter(validee=True)
         if exercice:
             nb_ecritures = nb_ecritures.filter(exercice=exercice)
 
@@ -100,7 +101,7 @@ class DashboardService:
                 "message": "Le plan comptable n'est pas encore initialisé",
             })
 
-        nb_brouillon = EcritureComptable.objects.filter(entreprise_id=entreprise_id).filter(validee=False).count()
+        nb_brouillon = scoped_entries(entreprise_id).filter(validee=False).count()
         if nb_brouillon > 0:
             alerts.append({
                 "niveau": "info",
@@ -112,17 +113,17 @@ class DashboardService:
     @staticmethod
     def compter_ecritures(*, entreprise_id=None):
         entreprise_id = require_enterprise(entreprise_id)
-        return EcritureComptable.objects.filter(entreprise_id=entreprise_id).count()
+        return scoped_entries(entreprise_id).count()
 
     @staticmethod
     def compter_ecritures_non_validees(*, entreprise_id=None):
         entreprise_id = require_enterprise(entreprise_id)
-        return EcritureComptable.objects.filter(entreprise_id=entreprise_id).filter(validee=False).count()
+        return scoped_entries(entreprise_id).filter(validee=False).count()
 
     @staticmethod
     def dernieres_ecritures(limit=10, *, entreprise_id=None):
         entreprise_id = require_enterprise(entreprise_id)
-        return EcritureComptable.objects.filter(entreprise_id=entreprise_id).select_related("journal", "exercice").order_by(
+        return scoped_entries(entreprise_id).select_related("journal", "exercice").order_by(
             "-date_ecriture", "-created_at"
         )[:limit]
 
@@ -136,7 +137,7 @@ class DashboardService:
     def totaux_par_journal(*, entreprise_id=None):
         entreprise_id = require_enterprise(entreprise_id)
         from django.db.models import Sum
-        return EcritureComptable.objects.filter(entreprise_id=entreprise_id).values("journal__code").annotate(
+        return scoped_entries(entreprise_id).filter(validee=True).values("journal__code").annotate(
             total=Sum("lignes__debit")
         ).order_by("journal__code")
 

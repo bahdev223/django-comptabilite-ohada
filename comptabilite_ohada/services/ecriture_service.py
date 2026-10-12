@@ -21,13 +21,16 @@ class EcritureService:
         entreprise_id = require_enterprise(entreprise_id)
         if date_operation is None:
             date_operation = date.today()
-        exercice = ExerciceComptable.objects.filter(
+        exercices = ExerciceComptable.objects.filter(
             entreprise_id=entreprise_id,
             date_debut__lte=date_operation,
             date_fin__gte=date_operation,
             cloture=False,
-        ).first()
-        return exercice
+        )
+        candidates = list(exercices[:2])
+        if len(candidates) > 1:
+            raise ValidationError('Exercices ouverts ambigus ; sélectionner explicitement la période.')
+        return candidates[0] if candidates else None
 
     @classmethod
     def get_or_create_journal(cls, code, libelle, type_journal, *, entreprise_id=None):
@@ -344,6 +347,7 @@ class EcritureService:
     @classmethod
     @transaction.atomic
     def creer_ecriture_amortissement(cls, plan, user=None, *, entreprise_id=None):
+        raise ValidationError('Amortissements suspendus : calendrier et imputations non certifiés.')
         immobilisation = require_owned(plan.immobilisation, entreprise_id)
         journal = cls.get_or_create_journal("OD", "Opérations Diverses", "OD", entreprise_id=entreprise_id)
         ref = f"AMORT-{immobilisation.code}-{plan.periode.strftime('%Y%m')}"
@@ -375,6 +379,7 @@ class EcritureService:
     @classmethod
     @transaction.atomic
     def creer_ecriture_cloture_exercice(cls, exercice, resultat, user=None, *, entreprise_id=None):
+        raise ValidationError('Clôture suspendue : procédure SYSCOHADA non certifiée.')
         journal = cls.get_or_create_journal("CL", "Clôture", "OD", entreprise_id=entreprise_id)
         ref = f"RES-{exercice.code}"
         libelle = f"Affectation résultat exercice {exercice.code}"

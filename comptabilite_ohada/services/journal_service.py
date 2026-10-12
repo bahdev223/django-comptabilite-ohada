@@ -66,6 +66,8 @@ class BalanceService:
         lignes = scoped_lines(entreprise_id).filter(
             ecriture__validee=True,
         )
+        if exercice:
+            lignes = lignes.filter(ecriture__exercice=exercice)
         if date_debut:
             lignes = lignes.filter(ecriture__date_ecriture__gte=date_debut)
         if date_fin:
@@ -104,6 +106,7 @@ class BalanceService:
         )
         if exercice:
             lignes = lignes.filter(
+                ecriture__exercice=exercice,
                 ecriture__date_ecriture__gte=exercice.date_debut,
                 ecriture__date_ecriture__lte=exercice.date_fin,
             )
@@ -130,6 +133,7 @@ class GrandLivreService:
             lignes = lignes.filter(compte__code__startswith=compte_code)
         if exercice:
             lignes = lignes.filter(
+                ecriture__exercice=exercice,
                 ecriture__date_ecriture__gte=exercice.date_debut,
                 ecriture__date_ecriture__lte=exercice.date_fin,
             )

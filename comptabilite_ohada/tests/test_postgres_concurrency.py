@@ -153,3 +153,49 @@ class PostgreSQLAccountingConcurrencyTests(TransactionTestCase):
         self.assertCountEqual(results, ["validated", "rejected"])
         entry.refresh_from_db()
         self.assertTrue(entry.validee)
+
+    def test_repeated_concurrent_reversal_preserves_original_and_posts_once(self):
+        entry = EcritureService.creer_ecriture(**self.payload('REVERSE-ONCE', validated=True))
+        barrier = Barrier(2)
+
+        def reverse():
+            def work():
+                barrier.wait(timeout=8)
+                try:
+                    ValidationService.annuler_ecriture(entry, entreprise_id=self.tenant,
+                        raison='Correction recette', date_operation=date(2026, 6, 13))
+                    return 'reversed'
+                except ValidationError:
+                    return 'rejected'
+            return self._thread(work)
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(reverse) for _ in range(2)]
+            self.assertCountEqual([f.result(timeout=15) for f in futures], ['reversed', 'rejected'])
+        entry.refresh_from_db()
+        self.assertTrue(entry.validee)
+        self.assertEqual(entry.total_debit, Decimal('100'))
+        self.assertEqual(EcritureComptable.objects.filter(entreprise_id=self.tenant, reference=f'ANNULE-ID-{entry.pk}').count(), 1)
+
+    def test_opposite_year_reversals_use_consistent_lock_order(self):
+        next_year = ExerciceComptable.objects.create(entreprise_id=self.tenant, code='2027', date_debut=date(2027, 1, 1), date_fin=date(2027, 12, 31))
+        first = EcritureService.creer_ecriture(**self.payload('FROM-2026', validated=True))
+        data = self.payload('FROM-2027', validated=True)
+        data.update(exercice=next_year, date_ecriture=date(2027, 6, 12))
+        second = EcritureService.creer_ecriture(**data)
+        barrier = Barrier(2)
+
+        def reverse(entry, operation_date):
+            def work():
+                with transaction.atomic():
+                    with connection.cursor() as cursor:
+                        cursor.execute("SET LOCAL lock_timeout = '5s'")
+                    barrier.wait(timeout=8)
+                    return ValidationService.annuler_ecriture(entry, entreprise_id=self.tenant,
+                        raison='Recette inter-exercices', date_operation=operation_date).pk
+            return self._thread(work)
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(reverse, first, date(2027, 6, 13)),
+                       pool.submit(reverse, second, date(2026, 6, 13))]
+            self.assertEqual(len({f.result(timeout=15) for f in futures}), 2)

@@ -106,7 +106,16 @@ class ValidationService:
     def annuler_ecriture(ecriture, user=None, raison='', *, entreprise_id=None, date_operation=None):
         from ..tenancy import require_owned
         ecriture = require_owned(ecriture, entreprise_id)
-        ExerciceComptable.objects.select_for_update().get(pk=ecriture.exercice_id)
+        source_exercise = require_owned(ecriture.exercice, entreprise_id)
+        operation_date = EcritureComptable._meta.get_field('date_ecriture').to_python(
+            date_operation or timezone.now().date())
+        target_exercise = EcritureService.get_exercice(operation_date, entreprise_id=entreprise_id)
+        if target_exercise is None:
+            raise ValidationError('Aucun exercice ouvert ne couvre la contrepassation.')
+        # Reversals across fiscal years must lock both years in the same order.
+        # Opposite transfers otherwise acquire source->target locks in reverse order.
+        for pk in sorted({source_exercise.pk, target_exercise.pk}):
+            ExerciceComptable.objects.select_for_update().get(pk=pk, entreprise_id=entreprise_id)
         ecriture = EcritureComptable.objects.select_for_update().get(pk=ecriture.pk)
         if not ecriture.validee or not raison.strip():
             raise ValidationError('Écriture validée et motif obligatoire pour contrepasser.')
@@ -117,7 +126,7 @@ class ValidationService:
         lignes = [dict(compte=l.compte, debit=l.credit, credit=l.debit,
                        libelle=f'Annulation {ecriture.reference}') for l in ecriture.lignes.select_related('compte')]
         return EcritureService.creer_ecriture(
-            reference=ref, date_ecriture=date_operation or timezone.now().date(),
+            reference=ref, date_ecriture=operation_date, exercice=target_exercise,
             libelle=f'Annulation de {ecriture.reference} - {raison}',
             journal=ecriture.journal, lignes=lignes, user=user, entreprise_id=entreprise_id,
         )
