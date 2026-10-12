@@ -36,6 +36,24 @@ class EnterpriseSecurityTests(TestCase):
         data.update(overrides)
         return EcritureService.creer_ecriture(**data)
 
+    def test_read_only_legacy_tenant_audit_refuses_unassigned_history(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        legacy = CompteComptable.objects.create(
+            code="LEGACY-UNASSIGNED", libelle="Ancien compte sans entreprise",
+        )
+        output = StringIO()
+        with self.assertRaises(CommandError):
+            call_command(
+                "audit_tenant_isolation",
+                "--fail-on-anomaly",
+                stdout=output,
+            )
+        self.assertIn('"comptecomptable"', output.getvalue())
+        self.assertTrue(CompteComptable.objects.filter(pk=legacy.pk).exists())
+
     def test_lookup_requires_enterprise(self):
         with self.assertRaises(ValidationError):
             EcritureService.get_compte('571')

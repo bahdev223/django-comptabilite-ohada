@@ -39,3 +39,7 @@ Nouveaux tests PostgreSQL : `comptabilite_ohada/tests/test_postgres_concurrency.
 Guide : [docs/P0_REMEDIATION.md](docs/P0_REMEDIATION.md).
 
 Aucune fusion, GitHub Actions volontaire, migration de production ni déploiement n'est autorisé pour cette branche.
+
+## Inventaire des lignes historiques sans entreprise
+
+Sur une copie de recette migrée en 0005, lancer `python manage.py audit_tenant_isolation --fail-on-anomaly`. La commande est en lecture seule, aucun rattachement automatique de tenant n'est accepté.

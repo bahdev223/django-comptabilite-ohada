@@ -97,3 +97,9 @@ Le service reçoit un adaptateur interne `tenancy.engine_gateway` : création ce
 - La PR #3 du même dépôt contient une implémentation alternative des migrations 0004/0005 : **ne pas fusionner les deux branches ensemble**. La PR #4 est la candidate principale après recette.
 
 Les 52 tests SQLite déclarés sont antérieurs à cette intervention complémentaire ; ne pas présenter ces nouveaux correctifs comme validés sans relancer la suite complète. Aucun test PostgreSQL n'est attesté dans ce nouveau travail.
+
+## Diagnostic des données historiques (commande réutilisée de la PR #3)
+
+La commande `python manage.py audit_tenant_isolation --fail-on-anomaly` est disponible sur cette branche. Elle recense, **sans jamais les modifier**, les lignes sans entreprise, les références interentreprises (journal/exercice/ligne de compte/parent) et les configurations en doublon. L'exécution doit se faire **sur copie PostgreSQL restaurée** en priorité ; elle échoue volontairement si une anomalie existe avec --fail-on-anomaly.
+
+Un test de non-modification a été ajouté en branche, sans être exécuté dans cette session.
