@@ -40,6 +40,31 @@ class EnterpriseSecurityTests(TestCase):
         with self.assertRaises(ValidationError):
             EcritureService.get_compte('571')
 
+
+    def test_text_account_code_cannot_be_mistaken_for_pk(self):
+        from ..models import CompteComptable
+        account = CompteComptable.objects.create(
+            entreprise_id='A', code='999', libelle='Compte interne',
+        )
+        numeric_pk_text = str(account.pk)
+        # When no code with these digits exists, the code lookup must not
+        # expose the record by its PK.
+        if numeric_pk_text != account.code and not CompteComptable.objects.filter(
+            entreprise_id='A', code=numeric_pk_text
+        ).exists():
+            self.assertIsNone(
+                EcritureService.get_compte(numeric_pk_text, entreprise_id='A')
+            )
+
+    def test_closure_default_fails_closed_without_an_audited_syscohada_process(self):
+        from ..services.exercice_service import ExerciceService
+        with self.assertRaises(ValidationError):
+            ExerciceService.cloturer(
+                self.rows['A']['exercice'], entreprise_id='A'
+            )
+        self.rows['A']['exercice'].refresh_from_db()
+        self.assertFalse(self.rows['A']['exercice'].cloture)
+
     def test_lookup_never_returns_foreign_account(self):
         self.assertEqual(EcritureService.get_compte('571', entreprise_id='B'), self.rows['B']['cash'])
         self.assertIsNone(EcritureService.get_compte(self.rows['B']['cash'].pk, entreprise_id='A'))
@@ -116,7 +141,10 @@ class EnterpriseSecurityTests(TestCase):
         from ..services.exercice_service import ExerciceService
         original = self.create(lignes=[{'compte': self.rows['A']['cash'], 'debit': 10}, {'compte': self.rows['A']['sale'], 'credit': 10}])
         ValidationService.annuler_ecriture(original, entreprise_id='A', raison='Erreur', date_operation=date(2026, 6, 2))
-        ExerciceService.cloturer(self.rows['A']['exercice'], entreprise_id='A')
+        with self.assertRaises(ValidationError):
+            ExerciceService.cloturer(self.rows['A']['exercice'], entreprise_id='A')
+        self.rows['A']['exercice'].refresh_from_db()
+        self.assertFalse(self.rows['A']['exercice'].cloture)
         self.assertFalse(EcritureComptable.objects.filter(reference='RES-2026').exists())
 
     def test_closed_exercise_cannot_receive_direct_draft(self):

@@ -48,8 +48,8 @@ class EcritureService:
         compte = CompteComptable.objects.filter(entreprise_id=entreprise_id, code=str(code_or_id), actif=True).first()
         if compte:
             return compte
-        if isinstance(code_or_id, str) and code_or_id.isdigit():
-            return CompteComptable.objects.filter(entreprise_id=entreprise_id, id=int(code_or_id), actif=True).first()
+        # A textual SYSCOHADA code never falls back to a database PK.
+        # An integer explicitly represents a PK; strings only represent codes.
         return None
 
     @classmethod
@@ -107,11 +107,15 @@ class EcritureService:
         if validee:
             from .exercice_service import ValidationService
             ecriture = ValidationService.valider_ecriture(ecriture, user=user, entreprise_id=entreprise_id)
-            ecriture_validee.send(
-                sender=EcritureService,
-                instance=ecriture,
-                lignes=lignes,
-                user=user,
+            # Publish only when the enclosing transaction has committed.
+            # Downstream consumers must still be idempotent (outbox/inbox).
+            transaction.on_commit(
+                lambda: ecriture_validee.send(
+                    sender=EcritureService,
+                    instance=ecriture,
+                    lignes=lignes,
+                    user=user,
+                )
             )
 
         return ecriture

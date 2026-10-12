@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from django.db import transaction, models
 from django.db.models import Sum
 from django.core.exceptions import ValidationError
+from django.conf import settings
 from ..tenancy import require_enterprise, require_owned
 from django.utils import timezone
 
@@ -27,6 +28,13 @@ class ExerciceService:
     @transaction.atomic
     def cloturer(exercice, user=None, *, entreprise_id=None):
         exercice = require_owned(exercice, entreprise_id)
+        # The historical shortcut posted annual profit/loss against capital.
+        # This is not a reviewed SYSCOHADA closing process, so refuse to close
+        # until the authority, control accounts and carry-forward are audited.
+        raise ValidationError(
+            "Clôture suspendue : procédure SYSCOHADA et autorité Cloud/Local "
+            "non encore certifiées."
+        )
         exercice = ExerciceComptable.objects.select_for_update().get(pk=exercice.pk)
         if EcritureComptable.objects.filter(entreprise_id=entreprise_id, exercice=exercice, validee=False).exists():
             raise ValidationError("Brouillons à traiter avant clôture.")
