@@ -1,3 +1,4 @@
+from ..tenancy import require_enterprise, require_owned, scoped_lines
 from decimal import Decimal
 from datetime import date
 
@@ -16,19 +17,22 @@ class BilanService:
     CLASSE_PRODUITS = ["7"]
 
     @staticmethod
-    def bilan(exercice=None, date_arret=None):
+    def bilan(exercice=None, date_arret=None, *, entreprise_id=None):
+        entreprise_id = require_enterprise(entreprise_id)
+        if exercice is not None:
+            exercice = require_owned(exercice, entreprise_id)
         if date_arret is None:
             if exercice:
                 date_arret = exercice.date_fin
             else:
                 date_arret = date.today()
 
-        lignes = LigneEcritureComptable.objects.filter(
+        lignes = scoped_lines(entreprise_id).filter(
             ecriture__validee=True,
             ecriture__date_ecriture__lte=date_arret,
         )
         if exercice:
-            lignes = lignes.filter(ecriture__date_ecriture__gte=exercice.date_debut)
+            lignes = lignes.filter(ecriture__exercice=exercice, ecriture__date_ecriture__gte=exercice.date_debut)
 
         actif = {}
         passif = {}
@@ -64,14 +68,19 @@ class BilanService:
         }
 
     @staticmethod
-    def compte_resultat(exercice=None, date_debut=None, date_fin=None):
+    def compte_resultat(exercice=None, date_debut=None, date_fin=None, *, entreprise_id=None):
+        entreprise_id = require_enterprise(entreprise_id)
+        if exercice is not None:
+            exercice = require_owned(exercice, entreprise_id)
         if exercice:
             date_debut = exercice.date_debut
             date_fin = exercice.date_fin
 
-        lignes = LigneEcritureComptable.objects.filter(
+        lignes = scoped_lines(entreprise_id).filter(
             ecriture__validee=True,
         )
+        if exercice:
+            lignes = lignes.filter(ecriture__exercice=exercice)
         if date_debut:
             lignes = lignes.filter(ecriture__date_ecriture__gte=date_debut)
         if date_fin:
@@ -111,3 +120,4 @@ class BilanService:
             "total_produits": total_produits,
             "resultat_net": resultat,
         }
+

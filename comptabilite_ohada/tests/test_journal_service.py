@@ -6,6 +6,7 @@ from ..models import (
     EcritureComptable, LigneEcritureComptable,
 )
 from ..services.journal_service import BalanceService
+from ..services.exercice_service import ValidationService
 
 
 class BalanceServiceTest(TestCase):
@@ -13,32 +14,32 @@ class BalanceServiceTest(TestCase):
         self.user = User.objects.create_user(username="compta", password="test1234")
         self.journal = JournalComptable.objects.create(
             code="VN", libelle="Ventes", type_journal="VN"
-        )
+        , entreprise_id="TEST")
         self.exercice = ExerciceComptable.objects.create(
             code="2025",
             date_debut="2025-01-01", date_fin="2025-12-31",
-        )
+        entreprise_id="TEST")
         self.compte_caisse = CompteComptable.objects.create(
             code="571", libelle="Caisse", nature="DEBIT", type_compte="compte",
-        )
+        entreprise_id="TEST")
         self.compte_produit = CompteComptable.objects.create(
             code="701", libelle="Ventes", nature="CREDIT", type_compte="compte",
-        )
+        entreprise_id="TEST")
         self.compte_charge = CompteComptable.objects.create(
             code="601", libelle="Achats", nature="DEBIT", type_compte="compte",
-        )
+        entreprise_id="TEST")
 
     def test_balance_vide(self):
         service = BalanceService()
-        balance = service.balance(exercice=self.exercice)
+        balance = service.balance(exercice=self.exercice, entreprise_id="TEST")
         self.assertEqual(len(balance), 0)
 
     def test_balance_apres_ecritures(self):
         ecriture_v = EcritureComptable.objects.create(
             journal=self.journal, exercice=self.exercice,
             date_ecriture="2025-06-01", reference="VN-001",
-            libelle="Vente", validee=True, created_by=self.user,
-        )
+            libelle="Vente", validee=False, created_by=self.user,
+        entreprise_id="TEST")
         LigneEcritureComptable.objects.create(
             ecriture=ecriture_v, compte=self.compte_caisse, debit=100000,
         )
@@ -46,6 +47,8 @@ class BalanceServiceTest(TestCase):
             ecriture=ecriture_v, compte=self.compte_produit, credit=100000,
         )
 
+        ValidationService.valider_ecriture(ecriture_v, entreprise_id="TEST")
         service = BalanceService()
-        balance = service.balance(exercice=self.exercice)
+        balance = service.balance(exercice=self.exercice, entreprise_id="TEST")
         self.assertGreaterEqual(len(balance), 2)
+

@@ -12,20 +12,21 @@ class ComptabiliteOhadaAppConf(AppConf):
             'DEFAULT_CURRENCY': 'FCFA',
             'EXERCICE_TYPE': 'ANNUEL',       # ANNUEL ou CONTINU
             'AUTO_CREATE_JOURNALS': True,
-            'AUTO_CREATE_ENTRY': True,
+            'AUTO_CREATE_ENTRY': False,
             'TIERS_MODEL': None,              # ex: 'clients.Client'
-            'COMPTES_INTEGRATION_ENABLED': True,
-            'STOCK_INTEGRATION_ENABLED': True,
+            'COMPTES_INTEGRATION_ENABLED': False,
+            'STOCK_INTEGRATION_ENABLED': False,
         }
     """
 
     DEFAULT_CURRENCY = "FCFA"
     EXERCICE_TYPE = "ANNUEL"
     AUTO_CREATE_JOURNALS = True
-    AUTO_CREATE_ENTRY = True
+    AUTO_CREATE_ENTRY = False
     TIERS_MODEL = None
-    COMPTES_INTEGRATION_ENABLED = True
-    STOCK_INTEGRATION_ENABLED = True
+    COMPTES_INTEGRATION_ENABLED = False
+    STOCK_INTEGRATION_ENABLED = False
 
     class Meta:
         prefix = "COMPTABILITE_OHADA"
+

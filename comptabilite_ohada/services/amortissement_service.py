@@ -1,3 +1,4 @@
+from django.core.exceptions import ImproperlyConfigured
 from decimal import Decimal
 from datetime import date
 
@@ -14,6 +15,7 @@ class AmortissementService:
     def creer_immobilisation(code, libelle, type_immo, date_acquisition,
                              valeur_originale, duree_ans, compte_immo,
                              compte_amort, compte_charge, valeur_residuelle=0):
+        raise ImproperlyConfigured('Composant suspendu avant validation métier et isolation complète.')
         return Immobilisation.objects.create(
             code=code, libelle=libelle, type_immobilisation=type_immo,
             date_acquisition=date_acquisition,
@@ -27,6 +29,7 @@ class AmortissementService:
 
     @staticmethod
     def generer_plan(immobilisation):
+        raise ImproperlyConfigured('Composant suspendu avant validation métier et isolation complète.')
         PlanAmortissement.objects.filter(immobilisation=immobilisation).delete()
 
         for annee in range(immobilisation.duree_ans):
@@ -55,6 +58,7 @@ class AmortissementService:
     @staticmethod
     @transaction.atomic
     def generer_ecritures_amortissement(periode=None, user=None):
+        raise ImproperlyConfigured('Composant suspendu avant validation métier et isolation complète.')
         if periode is None:
             periode = date.today().replace(day=1)
 
@@ -67,3 +71,4 @@ class AmortissementService:
             ecriture = EcritureService.creer_ecriture_amortissement(plan, user=user)
             ecritures.append(ecriture)
         return ecritures
+

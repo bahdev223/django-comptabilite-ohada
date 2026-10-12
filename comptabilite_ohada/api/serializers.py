@@ -10,7 +10,8 @@ from ..models import (
 class CompteComptableSerializer(serializers.ModelSerializer):
     class Meta:
         model = CompteComptable
-        fields = "__all__"
+        fields = ['id', 'code', 'libelle', 'nature', 'sens', 'parent', 'niveau', 'type_compte', 'est_mouvement', 'categorie', 'actif', 'entreprise_id']
+        read_only_fields = fields
 
 
 class LigneEcritureComptableSerializer(serializers.ModelSerializer):
@@ -20,7 +21,7 @@ class LigneEcritureComptableSerializer(serializers.ModelSerializer):
     class Meta:
         model = LigneEcritureComptable
         fields = ["id", "compte", "compte_code", "compte_libelle", "libelle",
-                   "debit", "credit", "sens"]
+                   "debit", "credit"]
 
 
 class EcritureComptableSerializer(serializers.ModelSerializer):
@@ -30,7 +31,9 @@ class EcritureComptableSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = EcritureComptable
-        fields = "__all__"
+        fields = ['id', 'reference', 'date_ecriture', 'libelle', 'journal', 'piece', 'exercice', 'validee', 'date_validation', 'created_at', 'created_by', 'entreprise_id']
+        fields += ['lignes', 'total_debit', 'total_credit']
+        read_only_fields = fields
 
 
 class EcritureCreateSerializer(serializers.ModelSerializer):
@@ -38,50 +41,47 @@ class EcritureCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = EcritureComptable
-        fields = "__all__"
+        fields = ['id', 'reference', 'date_ecriture', 'libelle', 'journal', 'piece', 'exercice', 'validee', 'date_validation', 'created_at', 'created_by', 'entreprise_id']
+        fields += ['lignes']
+        read_only_fields = fields
 
     def create(self, validated_data):
-        lignes_data = validated_data.pop("lignes")
-        ecriture = EcritureComptable.objects.create(**validated_data)
-        for ligne_data in lignes_data:
-            LigneEcritureComptable.objects.create(ecriture=ecriture, **ligne_data)
-        return ecriture
+        raise serializers.ValidationError('Saisie historique désactivée ; EcritureService tenant-scoped requis.')
+
+    def update(self, instance, validated_data):
+        raise serializers.ValidationError('Mutation directe interdite.')
 
     def validate(self, data):
-        """Vérifie que l'écriture est équilibrée."""
-        lignes = data.get("lignes", [])
-        total_debit = sum(float(l.get("debit", 0) or 0) for l in lignes)
-        total_credit = sum(float(l.get("credit", 0) or 0) for l in lignes)
-        if abs(total_debit - total_credit) > 0.01:
-            raise serializers.ValidationError(
-                "L'écriture n'est pas équilibrée : "
-                f"débit={total_debit:.2f}, crédit={total_credit:.2f}"
-            )
-        return data
+        raise serializers.ValidationError('Saisie historique désactivée.')
 
 
 class JournalComptableSerializer(serializers.ModelSerializer):
     class Meta:
         model = JournalComptable
-        fields = "__all__"
+        fields = ['id', 'code', 'libelle', 'type_journal', 'actif', 'entreprise_id']
+        read_only_fields = fields
 
 
 class ExerciceComptableSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExerciceComptable
-        fields = "__all__"
+        fields = ['id', 'code', 'date_debut', 'date_fin', 'cloture', 'date_cloture', 'created_at', 'entreprise_id']
+        read_only_fields = fields
 
 
 class ConfigurationComptableSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConfigurationComptable
-        fields = "__all__"
+        fields = ['id', 'nom', 'devise', 'nif', 'stat', 'rccm', 'exercice', 'est_initialise', 'date_initialisation', 'contrepartie_situation', 'compte_caisse_defaut', 'compte_banque_defaut', 'compte_client_defaut', 'compte_fournisseur_defaut', 'tva_active', 'taux_tva', 'created_at', 'updated_at']
+        fields += ['entreprise_id']
+        read_only_fields = fields
 
 
 class PlanAmortissementSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlanAmortissement
-        fields = "__all__"
+        fields = ['id', 'immobilisation', 'periode', 'montant', 'amortissement_cumule', 'valeur_nette', 'ecriture_generee', 'ecriture_reference']
+        read_only_fields = fields
 
 
 class ImmobilisationSerializer(serializers.ModelSerializer):
@@ -89,4 +89,7 @@ class ImmobilisationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Immobilisation
-        fields = "__all__"
+        fields = ['id', 'code', 'libelle', 'type_immobilisation', 'date_acquisition', 'valeur_originale', 'valeur_residuelle', 'duree_ans', 'compte_immobilisation', 'compte_amortissement', 'compte_charge', 'statut', 'notes', 'created_at', 'updated_at']
+        fields += ['entreprise_id', 'plan_amortissement']
+        read_only_fields = fields
+

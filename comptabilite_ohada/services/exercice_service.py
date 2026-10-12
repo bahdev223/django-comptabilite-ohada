@@ -1,7 +1,11 @@
 from decimal import Decimal
 from datetime import date, timedelta
 
-from django.db import transaction
+from django.db import transaction, models
+from django.db.models import Sum
+from django.core.exceptions import ValidationError
+from django.conf import settings
+from ..tenancy import require_enterprise, require_owned
 from django.utils import timezone
 
 from ..models import ExerciceComptable, ConfigurationComptable, EcritureComptable
@@ -14,35 +18,46 @@ class ExerciceService:
     """Gestion des exercices comptables."""
 
     @staticmethod
-    def creer(code, date_debut, date_fin):
+    def creer(code, date_debut, date_fin, *, entreprise_id=None):
+        entreprise_id = require_enterprise(entreprise_id)
         return ExerciceComptable.objects.create(
-            code=code, date_debut=date_debut, date_fin=date_fin,
+            entreprise_id=entreprise_id, code=code, date_debut=date_debut, date_fin=date_fin,
         )
 
     @staticmethod
     @transaction.atomic
-    def cloturer(exercice, user=None):
+    def cloturer(exercice, user=None, *, entreprise_id=None):
+        exercice = require_owned(exercice, entreprise_id)
+        # The historical shortcut posted annual profit/loss against capital.
+        # This is not a reviewed SYSCOHADA closing process, so refuse to close
+        # until the authority, control accounts and carry-forward are audited.
+        raise ValidationError(
+            "Clôture suspendue : procédure SYSCOHADA et autorité Cloud/Local "
+            "non encore certifiées."
+        )
+        exercice = ExerciceComptable.objects.select_for_update().get(pk=exercice.pk)
+        if EcritureComptable.objects.filter(entreprise_id=entreprise_id, exercice=exercice, validee=False).exists():
+            raise ValidationError("Brouillons à traiter avant clôture.")
         if exercice.cloture:
             raise ValueError(f"Exercice {exercice.code} déjà clôturé")
 
         # Vérifier équilibre
-        ecritures = EcritureComptable.objects.filter(exercice=exercice, validee=True)
+        ecritures = EcritureComptable.objects.filter(entreprise_id=entreprise_id, exercice=exercice, validee=True)
         for e in ecritures:
             if not e.est_equilibree:
                 raise ValueError(f"Écriture {e.reference} déséquilibrée")
 
         # Calculer le résultat
         lignes = LigneEcritureComptable.objects.filter(ecriture__in=ecritures)
-        total_charges = lignes.filter(compte__code__startswith="6").aggregate(
-            t=Sum("debit")
-        )["t"] or Decimal("0.00")
-        total_produits = lignes.filter(compte__code__startswith="7").aggregate(
-            t=Sum("credit")
-        )["t"] or Decimal("0.00")
+        charge_totals = lignes.filter(compte__code__startswith='6').aggregate(d=Sum('debit'), c=Sum('credit'))
+        product_totals = lignes.filter(compte__code__startswith='7').aggregate(d=Sum('debit'), c=Sum('credit'))
+        total_charges = (charge_totals['d'] or Decimal('0')) - (charge_totals['c'] or Decimal('0'))
+        total_produits = (product_totals['c'] or Decimal('0')) - (product_totals['d'] or Decimal('0'))
         resultat = total_produits - total_charges
 
         # Écriture d'affectation
-        EcritureService.creer_ecriture_cloture_exercice(exercice, resultat, user=user)
+        if resultat:
+            EcritureService.creer_ecriture_cloture_exercice(exercice, resultat, user=user, entreprise_id=entreprise_id)
 
         exercice.cloture = True
         exercice.date_cloture = timezone.now().date()
@@ -58,50 +73,60 @@ class ExerciceService:
         return exercice
 
     @staticmethod
-    def rouvrir(exercice):
-        if not exercice.cloture:
-            raise ValueError(f"Exercice {exercice.code} est déjà ouvert")
-        exercice.cloture = False
-        exercice.date_cloture = None
-        exercice.save()
-        return exercice
+    def rouvrir(exercice, *, entreprise_id=None):
+        require_owned(exercice, entreprise_id)
+        raise ValidationError('Réouverture suspendue : contrepassation de clôture et autorisation requises.')
 
 
 class ValidationService:
-    """Validation des écritures et des soldes."""
+    """Revalidate persisted rows under fiscal-year and entry locks."""
 
     @staticmethod
-    def valider_ecriture(ecriture, user=None):
+    @transaction.atomic
+    def valider_ecriture(ecriture, user=None, *, entreprise_id=None):
+        from ..tenancy import require_owned, validate_entry
+        ecriture = require_owned(ecriture, entreprise_id)
+        ExerciceComptable.objects.select_for_update().get(pk=ecriture.exercice_id)
+        ecriture = EcritureComptable.objects.select_for_update().get(pk=ecriture.pk)
         if ecriture.validee:
-            raise ValueError(f"Écriture {ecriture.reference} déjà validée")
-        if not ecriture.est_equilibree:
-            raise ValueError(f"Écriture {ecriture.reference} déséquilibrée "
-                             f"(Débit: {ecriture.total_debit}, Crédit: {ecriture.total_credit})")
+            raise ValidationError('Écriture déjà validée.')
+        lignes = list(ecriture.lignes.values('compte', 'debit', 'credit', 'libelle'))
+        for ligne in lignes:
+            ligne['compte'] = CompteComptable.objects.filter(pk=ligne['compte']).first()
+        validate_entry(ecriture.date_ecriture, ecriture.journal, ecriture.exercice, lignes, entreprise_id)
         ecriture.validee = True
         ecriture.date_validation = timezone.now()
-        ecriture.save()
+        # Validated under locks above; bypass the model's generic save guard only here.
+        models.QuerySet(model=EcritureComptable, using=ecriture._state.db).filter(pk=ecriture.pk, validee=False).update(
+            validee=True, date_validation=ecriture.date_validation)
         return ecriture
 
     @staticmethod
-    def annuler_ecriture(ecriture, user=None, raison=""):
-        if not ecriture.validee:
-            raise ValueError("Seules les écritures validées peuvent être annulées")
-        journal = ecriture.journal
-        ref = f"ANNULE-{ecriture.reference}"
-        lignes_inversees = []
-        for l in ecriture.lignes.all():
-            lignes_inversees.append({
-                "compte": l.compte,
-                "debit": l.credit,
-                "credit": l.debit,
-                "libelle": f"ANNULATION - {l.libelle or ecriture.libelle}",
-            })
-        EcritureService.creer_ecriture(
-            reference=ref,
-            date_ecriture=timezone.now().date(),
-            libelle=f"Annulation de {ecriture.reference} - {raison}",
-            journal=journal,
-            lignes=lignes_inversees,
-            exercice=ecriture.exercice,
-            user=user,
+    @transaction.atomic
+    def annuler_ecriture(ecriture, user=None, raison='', *, entreprise_id=None, date_operation=None):
+        from ..tenancy import require_owned
+        ecriture = require_owned(ecriture, entreprise_id)
+        source_exercise = require_owned(ecriture.exercice, entreprise_id)
+        operation_date = EcritureComptable._meta.get_field('date_ecriture').to_python(
+            date_operation or timezone.now().date())
+        target_exercise = EcritureService.get_exercice(operation_date, entreprise_id=entreprise_id)
+        if target_exercise is None:
+            raise ValidationError('Aucun exercice ouvert ne couvre la contrepassation.')
+        # Reversals across fiscal years must lock both years in the same order.
+        # Opposite transfers otherwise acquire source->target locks in reverse order.
+        for pk in sorted({source_exercise.pk, target_exercise.pk}):
+            ExerciceComptable.objects.select_for_update().get(pk=pk, entreprise_id=entreprise_id)
+        ecriture = EcritureComptable.objects.select_for_update().get(pk=ecriture.pk)
+        if not ecriture.validee or not raison.strip():
+            raise ValidationError('Écriture validée et motif obligatoire pour contrepasser.')
+        # Stable source-derived reference; serialized repeat rejects, no mutation of original.
+        ref = f'ANNULE-ID-{ecriture.pk}'
+        if EcritureComptable.objects.filter(entreprise_id=entreprise_id, reference=ref).exists():
+            raise ValidationError('Écriture déjà contrepassée.')
+        lignes = [dict(compte=l.compte, debit=l.credit, credit=l.debit,
+                       libelle=f'Annulation {ecriture.reference}') for l in ecriture.lignes.select_related('compte')]
+        return EcritureService.creer_ecriture(
+            reference=ref, date_ecriture=operation_date, exercice=target_exercise,
+            libelle=f'Annulation de {ecriture.reference} - {raison}',
+            journal=ecriture.journal, lignes=lignes, user=user, entreprise_id=entreprise_id,
         )

@@ -1,98 +1,45 @@
-# django-comptabilite-ohada
+# django-comptabilite-ohada — moteur SYSCOHADA
 
-Paquet Django pour la comptabilité OHADA/SYSCOHADA en partie double.
+Bibliothèque Django de comptabilité en partie double : plan comptable, journaux, écritures, exercices, balance, grand livre, reporting et fonctionnalités auxiliaires.
 
-## Fonctionnalités
+**Statut de cette branche : sécurisation P0 proposée, non fusionnée, non publiée en version et non validée sur PostgreSQL.** La présence de services comptables ne constitue pas une certification SYSCOHADA.
 
-- Plan comptable SYSCOHADA (classes 1 à 8)
-- Écritures comptables en partie double avec validation
-- Journaux auxiliaires (Ventes, Achats, Trésorerie, Banque, Caisse, OD, etc.)
-- Balance générale, Grand livre
-- Bilan et Compte de résultat
-- Gestion des exercices comptables (ouverture, clôture, réouverture)
-- Immobilisations et amortissements (linéaire, dégressif)
-- Rapprochement bancaire
-- Multi-société
-- Export CSV
-- API REST complète (DRF)
-- Intégration signal-based avec django-comptes
-- Moteur de règles comptables
+## Séparation de SahelTech
 
-## Installation
+- Moteur canonique candidat : ce dépôt.
+- Service autonome : [saheltech-comptabilite](https://github.com/bahdev223/saheltech-comptabilite) (backend Django/DRF, base PostgreSQL indépendante, Accounts et interface à construire).
+- Les applications métiers gardent les caisses, encaissements, factures et paiements opérationnels.
 
-```bash
-pip install django-comptabilite-ohada
-```
+## Règles P0
 
-Ou depuis GitHub :
-```bash
-pip install git+https://github.com/bahdev223/django-comptabilite-ohada.git
-```
+- Chaque opération de la bibliothèque reçoit `entreprise_id=` explicite, issu d'un contexte d'entreprise **autorisé côté serveur**.
+- Un compte, un journal, un exercice et toutes les lignes d'une écriture appartiennent au **même** tenant ; période ouverte et montants Decimal, débit=crédit.
+- Une écriture validée ne se modifie pas, elle se contre-passe avec motif.
+- Les anciennes API/HTML sont bloquées ; ne pas monter leurs ViewSets.
+- Les signaux automatiques de `django-comptes` sont désactivés : encaissement ≠ vente, transfert ≠ produit.
+- La clôture automatique et la réouverture sont suspendues en attendant la revue métier et l'autorité Cloud/Local.
+- Les lignes historiques sans entreprise sont conservées, sans attribution automatique.
 
-## Configuration
+Exemple d'utilisation côté hôte **après vérification du droit d'entreprise** :
 
 ```python
-# settings.py
-INSTALLED_APPS = [
-    ...
-    'comptabilite_ohada',
-]
+from comptabilite_ohada.services.ecriture_service import EcritureService
 
-COMPTABILITE_OHADA = {
-    'API_ENABLED': True,
-    'COMPTES_INTEGRATION_ENABLED': True,
-    'DEVISE_PAR_DEFAUT': 'XAF',
-    'AUTO_CREATE_JOURNAUX': True,
-    'AUTO_CREATE_EXERCICE': True,
-}
+compte = EcritureService.get_compte("571", entreprise_id=entreprise_verifiee)
 ```
 
-### Migrations
+Les anciens appels sans `entreprise_id` échouent volontairement. Ne pas utiliser la branche pour un hôte historique sans adaptateur et reprise des données.
 
-```bash
-python manage.py migrate comptabilite_ohada
-```
+## Tests et migrations
 
-### Charger le plan comptable SYSCOHADA
+Migrations additives 0004/0005 fournies, à tester sur une **copie** PostgreSQL. Les tests SQLite (52) rapportés lors du correctif initial sont **antérieurs aux dernières modifications**.
 
-```bash
-python manage.py charger_plan_comptable
-```
+Nouveaux tests PostgreSQL : `comptabilite_ohada/tests/test_postgres_concurrency.py`, à exécuter avec les recettes du dépôt de service.
 
-## Utilisation
+Guide : [docs/P0_REMEDIATION.md](docs/P0_REMEDIATION.md).
 
-### URLs
+Aucune fusion, GitHub Actions volontaire, migration de production ni déploiement n'est autorisé pour cette branche.
 
-```python
-from django.urls import include, path
+## Inventaire des lignes historiques sans entreprise
 
-urlpatterns = [
-    path('comptabilite/', include('comptabilite_ohada.urls')),
-]
-```
-
-### API REST
-
-- `GET /api/comptabilite/comptes/` — Liste des comptes
-- `POST /api/comptabilite/ecritures/` — Créer une écriture
-- `GET /api/comptabilite/ecritures/balance/` — Balance
-- `GET /api/comptabilite/ecritures/grand_livre/` — Grand livre
-- `GET /api/comptabilite/ecritures/bilan/` — Bilan
-- `GET /api/comptabilite/ecritures/compte_resultat/` — Compte de résultat
-- `POST /api/comptabilite/ecritures/<id>/valider/` — Valider une écriture
-- `POST /api/comptabilite/exercices/<id>/cloturer/` — Clôturer un exercice
-
-## Intégration avec django-comptes
-
-Quand un mouvement est créé dans django-comptes, `django-comptabilite-ohada` crée automatiquement les écritures comptables correspondantes via les signaux Django.
-
-Activation dans les settings :
-```python
-COMPTABILITE_OHADA = {
-    'COMPTES_INTEGRATION_ENABLED': True,
-}
-```
-
-## Licence
-
-MIT
+Sur une copie de recette migrée en 0005, lancer `python manage.py audit_tenant_isolation --fail-on-anomaly`. La commande est en lecture seule, aucun rattachement automatique de tenant n'est accepté.

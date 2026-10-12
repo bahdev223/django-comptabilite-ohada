@@ -1,3 +1,4 @@
+from django.core.exceptions import ImproperlyConfigured
 from decimal import Decimal
 
 from django.db import transaction
@@ -15,6 +16,7 @@ class RapprochementService:
     @transaction.atomic
     def creer_releve(compte_comptable_code, date_debut, date_fin,
                      solde_ouverture, solde_cloture):
+        raise ImproperlyConfigured('Composant suspendu avant validation métier et isolation complète.')
         return ReleveBancaire.objects.create(
             compte_comptable_code=compte_comptable_code,
             date_debut=date_debut,
@@ -25,6 +27,7 @@ class RapprochementService:
 
     @staticmethod
     def ajouter_ligne(releve, date_operation, libelle, montant, sens, reference=""):
+        raise ImproperlyConfigured('Composant suspendu avant validation métier et isolation complète.')
         return LigneReleveBancaire.objects.create(
             releve=releve,
             date_operation=date_operation,
@@ -36,6 +39,7 @@ class RapprochementService:
 
     @staticmethod
     def pointer(releve, ligne_id):
+        raise ImproperlyConfigured('Composant suspendu avant validation métier et isolation complète.')
         ligne = releve.lignes.filter(id=ligne_id).first()
         if ligne:
             ligne.pointe = True
@@ -44,6 +48,7 @@ class RapprochementService:
 
     @staticmethod
     def depointer(releve, ligne_id):
+        raise ImproperlyConfigured('Composant suspendu avant validation métier et isolation complète.')
         ligne = releve.lignes.filter(id=ligne_id).first()
         if ligne:
             ligne.pointe = False
@@ -53,6 +58,7 @@ class RapprochementService:
     @staticmethod
     @transaction.atomic
     def valider(releve, user=None):
+        raise ImproperlyConfigured('Composant suspendu avant validation métier et isolation complète.')
         non_pointees = releve.lignes.filter(pointe=False)
         if non_pointees.exists():
             raise ValueError(f"{non_pointees.count()} ligne(s) non pointée(s)")
@@ -79,3 +85,4 @@ class RapprochementService:
         )
 
         return releve
+

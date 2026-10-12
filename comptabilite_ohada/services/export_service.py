@@ -1,3 +1,4 @@
+from ..tenancy import require_enterprise, require_owned, scoped_lines
 from decimal import Decimal
 from io import BytesIO
 from datetime import date
@@ -14,13 +15,16 @@ class ExportService:
     """Export des états comptables (CSV, Excel, PDF)."""
 
     @staticmethod
-    def export_balance_csv(exercice=None):
+    def export_balance_csv(exercice=None, *, entreprise_id=None):
+        entreprise_id = require_enterprise(entreprise_id)
+        if exercice is not None:
+            exercice = require_owned(exercice, entreprise_id)
         import csv
         response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = "attachment; filename=balance.csv"
         writer = csv.writer(response)
         writer.writerow(["Code", "Compte", "Débit", "Crédit", "Solde"])
-        for ligne in BalanceService.balance(exercice):
+        for ligne in BalanceService.balance(exercice, entreprise_id=entreprise_id):
             c = ligne["compte"]
             writer.writerow([
                 c.code,
@@ -32,14 +36,17 @@ class ExportService:
         return response
 
     @staticmethod
-    def export_grand_livre_csv(compte_code=None, exercice=None):
+    def export_grand_livre_csv(compte_code=None, exercice=None, *, entreprise_id=None):
+        entreprise_id = require_enterprise(entreprise_id)
+        if exercice is not None:
+            exercice = require_owned(exercice, entreprise_id)
         import csv
         from .journal_service import GrandLivreService
         response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = "attachment; filename=grand_livre.csv"
         writer = csv.writer(response)
         writer.writerow(["Date", "Référence", "Libellé", "Compte", "Débit", "Crédit"])
-        for l in GrandLivreService.grand_livre(compte_code, exercice):
+        for l in GrandLivreService.grand_livre(compte_code, exercice, entreprise_id=entreprise_id):
             c = l["compte"]
             writer.writerow([
                 l["date"], l["reference"], l["libelle"],
@@ -49,10 +56,13 @@ class ExportService:
         return response
 
     @staticmethod
-    def export_bilan_csv(exercice=None):
+    def export_bilan_csv(exercice=None, *, entreprise_id=None):
+        entreprise_id = require_enterprise(entreprise_id)
+        if exercice is not None:
+            exercice = require_owned(exercice, entreprise_id)
         import csv
         from .bilan_service import BilanService
-        bilan = BilanService.bilan(exercice)
+        bilan = BilanService.bilan(exercice, entreprise_id=entreprise_id)
         response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = "attachment; filename=bilan.csv"
         writer = csv.writer(response)
@@ -75,17 +85,20 @@ class ExportService:
         return response
 
     @staticmethod
-    def export_ecritures_csv(exercice=None):
+    def export_ecritures_csv(exercice=None, *, entreprise_id=None):
+        entreprise_id = require_enterprise(entreprise_id)
+        if exercice is not None:
+            exercice = require_owned(exercice, entreprise_id)
         import csv
         response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = "attachment; filename=ecritures.csv"
         writer = csv.writer(response)
         writer.writerow(["Date", "Référence", "Journal", "Libellé", "Compte", "Débit", "Crédit", "Validée"])
-        qs = EcritureComptable.objects.select_related("journal").prefetch_related("lignes__compte")
+        qs = EcritureComptable.objects.filter(entreprise_id=entreprise_id, journal__entreprise_id=entreprise_id, exercice__entreprise_id=entreprise_id).select_related("journal").prefetch_related("lignes__compte")
         if exercice:
             qs = qs.filter(exercice=exercice)
         for e in qs.order_by("date_ecriture"):
-            for l in e.lignes.all():
+            for l in e.lignes.filter(compte__entreprise_id=entreprise_id):
                 writer.writerow([
                     e.date_ecriture, e.reference, e.journal.code,
                     e.libelle[:80], f"{l.compte.code} - {l.compte.libelle}",
@@ -93,3 +106,4 @@ class ExportService:
                     "Oui" if e.validee else "Non",
                 ])
         return response
+

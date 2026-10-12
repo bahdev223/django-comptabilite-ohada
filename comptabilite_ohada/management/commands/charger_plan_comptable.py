@@ -7,6 +7,7 @@ class Command(BaseCommand):
     help = "Charge le plan comptable SYSCOHADA fourni avec le paquet."
 
     def add_arguments(self, parser):
+        parser.add_argument('--entreprise-id', required=True)
         parser.add_argument(
             "--ecraser",
             action="store_true",
@@ -16,7 +17,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         resultat = InitialisationService.charger_plan_comptable(
-            force=options["ecraser"]
+            force=options["ecraser"], entreprise_id=options['entreprise_id']
         )
         if not resultat.get("success"):
             raise CommandError(resultat.get("error", "Initialisation impossible"))
@@ -26,3 +27,4 @@ class Command(BaseCommand):
                 f"({resultat['comptes_crees']} créés)."
             )
         )
+

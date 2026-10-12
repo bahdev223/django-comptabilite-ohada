@@ -1,4 +1,6 @@
 from django.test import TestCase
+from datetime import date
+from ..services.exercice_service import ValidationService
 from django.contrib.auth.models import User
 
 from ..models import (
@@ -13,17 +15,17 @@ class EcritureServiceTest(TestCase):
         self.user = User.objects.create_user(username="compta", password="test1234")
         self.journal = JournalComptable.objects.create(
             code="VN", libelle="Ventes", type_journal="VN"
-        )
+        , entreprise_id="TEST")
         self.exercice = ExerciceComptable.objects.create(
             code="2025",
-            date_debut="2025-01-01", date_fin="2025-12-31",
-        )
+            date_debut=date(date.today().year, 1, 1), date_fin=date(date.today().year, 12, 31),
+        entreprise_id="TEST")
         self.compte_caisse = CompteComptable.objects.create(
             code="571", libelle="Caisse", nature="DEBIT", type_compte="compte",
-        )
+        entreprise_id="TEST")
         self.compte_produit = CompteComptable.objects.create(
             code="701", libelle="Ventes", nature="CREDIT", type_compte="compte",
-        )
+        entreprise_id="TEST")
 
     def test_creer_ecriture_vente(self):
         ecriture = EcritureService.creer_ecriture_vente(
@@ -32,7 +34,7 @@ class EcritureServiceTest(TestCase):
             libelle="Vente test",
             compte_produit_code="701",
             user=self.user,
-        )
+        entreprise_id="TEST")
         self.assertIsNotNone(ecriture)
         self.assertTrue(ecriture.validee)
         self.assertEqual(ecriture.lignes.count(), 2)
@@ -42,13 +44,13 @@ class EcritureServiceTest(TestCase):
     def test_valider_ecriture(self):
         ecriture = EcritureComptable.objects.create(
             journal=self.journal, exercice=self.exercice,
-            date_ecriture="2025-06-01", reference="VN-001",
+            date_ecriture=date(date.today().year, 6, 1), reference="VN-001",
             libelle="Vente test", validee=False,
             # `created_by` est un champ TEXTE : il garde un nom, pas une
             # cle etrangere. Un compte supprime ne doit pas emporter
             # l'ecriture qu'il a saisie, ni la rendre anonyme.
             created_by=self.user.username,
-        )
+        entreprise_id="TEST")
         LigneEcritureComptable.objects.create(
             ecriture=ecriture, compte=self.compte_caisse, debit=50000,
         )
@@ -56,7 +58,7 @@ class EcritureServiceTest(TestCase):
             ecriture=ecriture, compte=self.compte_produit, credit=50000,
         )
         self.assertFalse(ecriture.validee)
-        ecriture.validee = True
-        ecriture.save()
+        ValidationService.valider_ecriture(ecriture, entreprise_id="TEST")
         ecriture.refresh_from_db()
         self.assertTrue(ecriture.validee)
+

@@ -1,0 +1,108 @@
+Creating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+Found 68 test(s).
+Operations to perform:
+  Synchronize unmigrated apps: rest_framework
+  Apply all migrations: auth, comptabilite_ohada, contenttypes
+Synchronizing apps without migrations:
+  Creating tables...
+    Running deferred SQL...
+Running migrations:
+  Applying contenttypes.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying auth.0001_initial... OK
+  Applying auth.0002_alter_permission_name_max_length... OK
+  Applying auth.0003_alter_user_email_max_length... OK
+  Applying auth.0004_alter_user_username_opts... OK
+  Applying auth.0005_alter_user_last_login_null... OK
+  Applying auth.0006_require_contenttypes_0002... OK
+  Applying auth.0007_alter_validators_add_error_messages... OK
+  Applying auth.0008_alter_user_username_max_length... OK
+  Applying auth.0009_alter_user_last_name_max_length... OK
+  Applying auth.0010_alter_group_name_max_length... OK
+  Applying auth.0011_update_proxy_permissions... OK
+  Applying auth.0012_alter_user_first_name_max_length... OK
+  Applying comptabilite_ohada.0001_initial... OK
+  Applying comptabilite_ohada.0002_comptecomptable_entreprise_id_and_more... OK
+  Applying comptabilite_ohada.0003_alter_comptecomptable_categorie... OK
+  Applying comptabilite_ohada.0004_configurationcomptable_entreprise_id_and_more... OK
+  Applying comptabilite_ohada.0005_alter_ecriturecomptable_exercice_and_more... OK
+  Applying comptabilite_ohada.0006_alter_ligneecriturecomptable_ecriture...test_creee_a_la_main_elle_ne_peut_pas_etre_validee (comptabilite_ohada.tests.test_equilibre.UneEcritureFausseNePasseParAucunePorte.test_creee_a_la_main_elle_ne_peut_pas_etre_validee)
+On contourne le service et l'on ecrit directement en base — ce que ... ok
+test_le_service_refuse_de_la_creer (comptabilite_ohada.tests.test_equilibre.UneEcritureFausseNePasseParAucunePorte.test_le_service_refuse_de_la_creer) ... ok
+test_le_solde_du_compte_suit_les_ecritures_validees (comptabilite_ohada.tests.test_equilibre.UneEcritureFausseNePasseParAucunePorte.test_le_solde_du_compte_suit_les_ecritures_validees) ... ok
+test_une_ecriture_juste_passe (comptabilite_ohada.tests.test_equilibre.UneEcritureFausseNePasseParAucunePorte.test_une_ecriture_juste_passe)
+Le garde-fou ne doit pas bloquer le travail normal. ... ok
+test_compte_introuvable_l_ecriture_est_refusee (comptabilite_ohada.tests.test_garde_fous.GardeFousEcritureTest.test_compte_introuvable_l_ecriture_est_refusee) ... ok
+test_sans_exercice_ouvert_l_ecriture_est_refusee (comptabilite_ohada.tests.test_garde_fous.GardeFousEcritureTest.test_sans_exercice_ouvert_l_ecriture_est_refusee) ... ok
+test_une_ecriture_correcte_passe_toujours (comptabilite_ohada.tests.test_garde_fous.GardeFousEcritureTest.test_une_ecriture_correcte_passe_toujours)
+Le garde-fou ne doit pas gener le cas nominal. ... ok
+test_charger_plan_comptable (comptabilite_ohada.tests.test_initialisation.InitialisationServiceTest.test_charger_plan_comptable) ... ok
+test_charger_plan_comptable_ecraser (comptabilite_ohada.tests.test_initialisation.InitialisationServiceTest.test_charger_plan_comptable_ecraser) ... ok
+test_balance_apres_ecritures (comptabilite_ohada.tests.test_journal_service.BalanceServiceTest.test_balance_apres_ecritures) ... ok
+test_balance_vide (comptabilite_ohada.tests.test_journal_service.BalanceServiceTest.test_balance_vide) ... ok
+test_compte_actif_par_defaut (comptabilite_ohada.tests.test_models.CompteComptableModelTest.test_compte_actif_par_defaut) ... ok
+test_compte_sans_ecriture_a_un_solde_nul (comptabilite_ohada.tests.test_models.CompteComptableModelTest.test_compte_sans_ecriture_a_un_solde_nul)
+Le solde ne vit pas sur le modele : il se calcule a partir des ... ok
+test_compte_str (comptabilite_ohada.tests.test_models.CompteComptableModelTest.test_compte_str) ... ok
+test_ecriture_desequilibree (comptabilite_ohada.tests.test_models.EcritureComptableModelTest.test_ecriture_desequilibree) ... ok
+test_ecriture_equilibree (comptabilite_ohada.tests.test_models.EcritureComptableModelTest.test_ecriture_equilibree) ... ok
+test_exercice_ouvert_par_defaut (comptabilite_ohada.tests.test_models.ExerciceComptableModelTest.test_exercice_ouvert_par_defaut) ... ok
+test_exercice_str (comptabilite_ohada.tests.test_models.ExerciceComptableModelTest.test_exercice_str) ... ok
+test_ambiguous_automatic_exercise_is_refused (comptabilite_ohada.tests.test_p0_review.ReviewSecurityTests.test_ambiguous_automatic_exercise_is_refused) ... ok
+test_base_collector_cannot_cascade_delete_ledger_lines (comptabilite_ohada.tests.test_p0_review.ReviewSecurityTests.test_base_collector_cannot_cascade_delete_ledger_lines) ... ok
+test_dashboard_does_not_disclose_foreign_journal_from_legacy_graph (comptabilite_ohada.tests.test_p0_review.ReviewSecurityTests.test_dashboard_does_not_disclose_foreign_journal_from_legacy_graph) ... ok
+test_explicit_exercise_does_not_mix_overlapping_legacy_periods (comptabilite_ohada.tests.test_p0_review.ReviewSecurityTests.test_explicit_exercise_does_not_mix_overlapping_legacy_periods) ... ok
+test_line_with_inactive_account_is_refused (comptabilite_ohada.tests.test_p0_review.ReviewSecurityTests.test_line_with_inactive_account_is_refused) ... ok
+test_reversal_into_new_year_preserves_closed_original (comptabilite_ohada.tests.test_p0_review.ReviewSecurityTests.test_reversal_into_new_year_preserves_closed_original) ... ok
+test_secondary_amortization_entry_point_is_suspended (comptabilite_ohada.tests.test_p0_review.ReviewSecurityTests.test_secondary_amortization_entry_point_is_suspended) ... ok
+test_secondary_closure_entry_point_is_suspended (comptabilite_ohada.tests.test_p0_review.ReviewSecurityTests.test_secondary_closure_entry_point_is_suspended) ... ok
+test_all_legacy_api_viewsets_deny_even_superuser (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_all_legacy_api_viewsets_deny_even_superuser) ... ok
+test_bulk_mutation_and_cascade_deletion_cannot_erase_posted_history (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_bulk_mutation_and_cascade_deletion_cannot_erase_posted_history) ... ok
+test_closed_exercise_cannot_receive_direct_draft (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_closed_exercise_cannot_receive_direct_draft) ... ok
+test_closed_or_out_of_period_exercise_rejected (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_closed_or_out_of_period_exercise_rejected) ... ok
+test_closure_default_fails_closed_without_an_audited_syscohada_process (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_closure_default_fails_closed_without_an_audited_syscohada_process) ... ok
+test_configuration_does_not_reuse_legacy_singleton (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_configuration_does_not_reuse_legacy_singleton) ... ok
+test_direct_validation_requires_domain (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_direct_validation_requires_domain) ... ok
+test_dual_sided_line_rejected (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_dual_sided_line_rejected) ... ok
+test_explicit_read_serializers_are_usable (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_explicit_read_serializers_are_usable) ... ok
+test_force_chart_reload_preserves_historical_entries (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_force_chart_reload_preserves_historical_entries) ... ok
+test_foreign_journal_exercise_and_account_rejected_atomically (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_foreign_journal_exercise_and_account_rejected_atomically) ... ok
+test_inactive_account_rejected_even_with_stale_instance (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_inactive_account_rejected_even_with_stale_instance) ... ok
+test_invalid_amounts_rejected_before_writes (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_invalid_amounts_rejected_before_writes) ... ok
+test_legacy_creation_serializer_is_blocked (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_legacy_creation_serializer_is_blocked) ... ok
+test_lookup_never_returns_foreign_account (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_lookup_never_returns_foreign_account) ... ok
+test_lookup_requires_enterprise (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_lookup_requires_enterprise) ... ok
+test_new_empty_tenant_entry_rejected (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_new_empty_tenant_entry_rejected) ... ok
+test_no_exercise_fallback_outside_dates (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_no_exercise_fallback_outside_dates) ... ok
+test_opening_balance_cannot_inject_identity_or_negative_amount (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_opening_balance_cannot_inject_identity_or_negative_amount) ... ok
+test_posted_entry_and_lines_cannot_be_changed_or_deleted (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_posted_entry_and_lines_cannot_be_changed_or_deleted) ... ok
+test_read_only_legacy_tenant_audit_refuses_unassigned_history (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_read_only_legacy_tenant_audit_refuses_unassigned_history) ... ok
+test_receipt_settles_client_without_creating_sale (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_receipt_settles_client_without_creating_sale) ... ok
+test_reports_are_scoped (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_reports_are_scoped) ... ok
+test_reversal_cancels_dashboard_profit (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_reversal_cancels_dashboard_profit) ... ok
+test_reversal_preserves_original_and_is_not_duplicated (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_reversal_preserves_original_and_is_not_duplicated) ... ok
+test_reversal_then_closure_posts_no_fictitious_profit (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_reversal_then_closure_posts_no_fictitious_profit) ... ok
+test_selector_and_csv_are_scoped (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_selector_and_csv_are_scoped) ... ok
+test_staff_is_not_accounting_authorization (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_staff_is_not_accounting_authorization) ... ok
+test_text_account_code_cannot_be_mistaken_for_pk (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_text_account_code_cannot_be_mistaken_for_pk) ... ok
+test_transfer_has_no_income_account (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_transfer_has_no_income_account) ... ok
+test_unsafe_signal_bridge_cannot_be_enabled (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_unsafe_signal_bridge_cannot_be_enabled) ... ok
+test_unvalidated_secondary_services_fail_closed (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_unvalidated_secondary_services_fail_closed) ... ok
+test_valid_entry_is_scoped_and_timestamped (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_valid_entry_is_scoped_and_timestamped) ... ok
+test_validation_rechecks_closed_exercise (comptabilite_ohada.tests.test_p0_security.EnterpriseSecurityTests.test_validation_rechecks_closed_exercise) ... ok
+test_creer_ecriture_vente (comptabilite_ohada.tests.test_services.EcritureServiceTest.test_creer_ecriture_vente) ... ok
+test_valider_ecriture (comptabilite_ohada.tests.test_services.EcritureServiceTest.test_valider_ecriture) ... ok
+test_additive_tenant_migration_preserves_orphaned_history (comptabilite_ohada.tests.test_migration_preservation.HistoricalMigrationTests.test_additive_tenant_migration_preserves_orphaned_history) ... ok
+test_line_append_waits_for_validation_then_refuses (comptabilite_ohada.tests.test_postgres_concurrency.PostgreSQLAccountingConcurrencyTests.test_line_append_waits_for_validation_then_refuses) ... skipped 'PostgreSQL is mandatory for SELECT FOR UPDATE tests.'
+test_opposite_year_reversals_use_consistent_lock_order (comptabilite_ohada.tests.test_postgres_concurrency.PostgreSQLAccountingConcurrencyTests.test_opposite_year_reversals_use_consistent_lock_order) ... skipped 'PostgreSQL is mandatory for SELECT FOR UPDATE tests.'
+test_repeated_concurrent_reversal_preserves_original_and_posts_once (comptabilite_ohada.tests.test_postgres_concurrency.PostgreSQLAccountingConcurrencyTests.test_repeated_concurrent_reversal_preserves_original_and_posts_once) ... skipped 'PostgreSQL is mandatory for SELECT FOR UPDATE tests.'
+test_two_validators_cannot_both_validate_same_draft (comptabilite_ohada.tests.test_postgres_concurrency.PostgreSQLAccountingConcurrencyTests.test_two_validators_cannot_both_validate_same_draft) ... skipped 'PostgreSQL is mandatory for SELECT FOR UPDATE tests.'
+test_two_writers_same_enterprise_reference_are_deduplicated (comptabilite_ohada.tests.test_postgres_concurrency.PostgreSQLAccountingConcurrencyTests.test_two_writers_same_enterprise_reference_are_deduplicated) ... skipped 'PostgreSQL is mandatory for SELECT FOR UPDATE tests.'
+
+----------------------------------------------------------------------
+Ran 68 tests in 1.610s
+
+OK (skipped=5)
+Destroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')...
+ OK
+System check identified no issues (0 silenced).

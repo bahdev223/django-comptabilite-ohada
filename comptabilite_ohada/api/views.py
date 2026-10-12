@@ -1,4 +1,5 @@
 from rest_framework import viewsets, status
+from ..permissions import LegacyAPIUnavailable
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters import rest_framework as filters
@@ -24,6 +25,7 @@ from .serializers import (
 
 
 class CompteComptableViewSet(viewsets.ModelViewSet):
+    permission_classes = [LegacyAPIUnavailable]
     queryset = CompteComptable.objects.all()
     serializer_class = CompteComptableSerializer
     filterset_fields = ["code", "classe", "nature", "type_compte", "actif"]
@@ -42,6 +44,7 @@ class CompteComptableViewSet(viewsets.ModelViewSet):
 
 
 class EcritureComptableViewSet(viewsets.ModelViewSet):
+    permission_classes = [LegacyAPIUnavailable]
     queryset = EcritureComptable.objects.prefetch_related("lignes__compte").all()
     filterset_fields = ["validee", "journal", "exercice", "type_operation"]
     search_fields = ["reference", "libelle"]
@@ -106,6 +109,7 @@ class EcritureComptableViewSet(viewsets.ModelViewSet):
 
 
 class JournalComptableViewSet(viewsets.ModelViewSet):
+    permission_classes = [LegacyAPIUnavailable]
     queryset = JournalComptable.objects.all()
     serializer_class = JournalComptableSerializer
     filterset_fields = ["code", "actif"]
@@ -124,6 +128,7 @@ class JournalComptableViewSet(viewsets.ModelViewSet):
 
 
 class ExerciceComptableViewSet(viewsets.ModelViewSet):
+    permission_classes = [LegacyAPIUnavailable]
     queryset = ExerciceComptable.objects.all()
     serializer_class = ExerciceComptableSerializer
     filterset_fields = ["cloture", "societe"]
@@ -149,11 +154,13 @@ class ExerciceComptableViewSet(viewsets.ModelViewSet):
 
 
 class ConfigurationComptableViewSet(viewsets.ModelViewSet):
+    permission_classes = [LegacyAPIUnavailable]
     queryset = ConfigurationComptable.objects.all()
     serializer_class = ConfigurationComptableSerializer
 
 
 class ImmobilisationViewSet(viewsets.ModelViewSet):
+    permission_classes = [LegacyAPIUnavailable]
     queryset = Immobilisation.objects.prefetch_related("plan_amortissement").all()
     serializer_class = ImmobilisationSerializer
     filterset_fields = ["statut", "mode_amortissement", "societe"]
@@ -176,3 +183,4 @@ class ImmobilisationViewSet(viewsets.ModelViewSet):
             return Response({"status": "amortissement comptabilisé"})
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+

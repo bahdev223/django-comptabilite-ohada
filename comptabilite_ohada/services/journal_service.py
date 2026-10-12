@@ -1,3 +1,4 @@
+from ..tenancy import require_enterprise, require_owned, scoped_lines
 from decimal import Decimal
 from datetime import date, timedelta
 
@@ -12,14 +13,17 @@ class JournalService:
     """Gestion des journaux comptables."""
 
     @staticmethod
-    def total_journal(journal, date_debut=None, date_fin=None):
-        qs = EcritureComptable.objects.filter(journal=journal, validee=True)
+    def total_journal(journal, date_debut=None, date_fin=None, *, entreprise_id=None):
+        entreprise_id = require_enterprise(entreprise_id)
+        if journal is not None:
+            journal = require_owned(journal, entreprise_id)
+        qs = EcritureComptable.objects.filter(entreprise_id=entreprise_id).filter(journal=journal, validee=True)
         if date_debut:
             qs = qs.filter(date_ecriture__gte=date_debut)
         if date_fin:
             qs = qs.filter(date_ecriture__lte=date_fin)
         ecritures = qs.values_list("id", flat=True)
-        lignes = LigneEcritureComptable.objects.filter(ecriture_id__in=ecritures)
+        lignes = scoped_lines(entreprise_id).filter(ecriture_id__in=ecritures)
         return {
             "total_debit": lignes.aggregate(total=Sum("debit"))["total"] or Decimal("0.00"),
             "total_credit": lignes.aggregate(total=Sum("credit"))["total"] or Decimal("0.00"),
@@ -27,14 +31,17 @@ class JournalService:
         }
 
     @staticmethod
-    def liste_avec_totaux(exercice=None):
-        journaux = JournalComptable.objects.filter(actif=True)
+    def liste_avec_totaux(exercice=None, *, entreprise_id=None):
+        entreprise_id = require_enterprise(entreprise_id)
+        if exercice is not None:
+            exercice = require_owned(exercice, entreprise_id)
+        journaux = JournalComptable.objects.filter(entreprise_id=entreprise_id).filter(actif=True)
         result = []
         for j in journaux:
-            qs = EcritureComptable.objects.filter(journal=j, validee=True)
+            qs = EcritureComptable.objects.filter(entreprise_id=entreprise_id).filter(journal=j, validee=True)
             if exercice:
                 qs = qs.filter(exercice=exercice)
-            lignes = LigneEcritureComptable.objects.filter(ecriture_id__in=qs.values("id"))
+            lignes = scoped_lines(entreprise_id).filter(ecriture_id__in=qs.values("id"))
             result.append({
                 "journal": j,
                 "nb_ecritures": qs.count(),
@@ -48,14 +55,19 @@ class BalanceService:
     """Balance des comptes."""
 
     @staticmethod
-    def balance(exercice=None, date_debut=None, date_fin=None):
+    def balance(exercice=None, date_debut=None, date_fin=None, *, entreprise_id=None):
+        entreprise_id = require_enterprise(entreprise_id)
+        if exercice is not None:
+            exercice = require_owned(exercice, entreprise_id)
         if exercice:
             date_debut = exercice.date_debut
             date_fin = exercice.date_fin
 
-        lignes = LigneEcritureComptable.objects.filter(
+        lignes = scoped_lines(entreprise_id).filter(
             ecriture__validee=True,
         )
+        if exercice:
+            lignes = lignes.filter(ecriture__exercice=exercice)
         if date_debut:
             lignes = lignes.filter(ecriture__date_ecriture__gte=date_debut)
         if date_fin:
@@ -83,12 +95,18 @@ class BalanceService:
         return sorted(data.values(), key=lambda x: x["compte"].code)
 
     @staticmethod
-    def solde_compte(compte, exercice=None):
-        lignes = LigneEcritureComptable.objects.filter(
+    def solde_compte(compte, exercice=None, *, entreprise_id=None):
+        entreprise_id = require_enterprise(entreprise_id)
+        if exercice is not None:
+            exercice = require_owned(exercice, entreprise_id)
+        if compte is not None:
+            compte = require_owned(compte, entreprise_id)
+        lignes = scoped_lines(entreprise_id).filter(
             compte=compte, ecriture__validee=True,
         )
         if exercice:
             lignes = lignes.filter(
+                ecriture__exercice=exercice,
                 ecriture__date_ecriture__gte=exercice.date_debut,
                 ecriture__date_ecriture__lte=exercice.date_fin,
             )
@@ -103,8 +121,11 @@ class GrandLivreService:
     """Grand livre des comptes."""
 
     @staticmethod
-    def grand_livre(compte_code=None, exercice=None, date_debut=None, date_fin=None):
-        lignes = LigneEcritureComptable.objects.filter(
+    def grand_livre(compte_code=None, exercice=None, date_debut=None, date_fin=None, *, entreprise_id=None):
+        entreprise_id = require_enterprise(entreprise_id)
+        if exercice is not None:
+            exercice = require_owned(exercice, entreprise_id)
+        lignes = scoped_lines(entreprise_id).filter(
             ecriture__validee=True,
         ).select_related("ecriture", "compte").order_by("ecriture__date_ecriture")
 
@@ -112,6 +133,7 @@ class GrandLivreService:
             lignes = lignes.filter(compte__code__startswith=compte_code)
         if exercice:
             lignes = lignes.filter(
+                ecriture__exercice=exercice,
                 ecriture__date_ecriture__gte=exercice.date_debut,
                 ecriture__date_ecriture__lte=exercice.date_fin,
             )
@@ -131,3 +153,4 @@ class GrandLivreService:
             }
             for l in lignes
         ]
+
