@@ -1,3 +1,5 @@
+> Recette actualisée du 12 octobre : voir REVIEW_2026-10-12.md. PostgreSQL reste bloqué ; aucune activation.
+
 # Audit et corrections P0 — 11 octobre 2026
 
 ## Sources figées
