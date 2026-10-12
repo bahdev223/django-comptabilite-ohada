@@ -34,11 +34,11 @@ Les migrations 0001–0003 et les modèles comptes/journaux/exercices/configurat
 
 - `entreprise_id` explicite requis dans saisie, recherche de comptes/exercices/journaux, initialisation et rapports. FK relues en base et vérifiées dans le même tenant ; les lignes de rapports excluent aussi les graphes historiques incohérents.
 - Partie double exacte en Decimal ; montants finis, non négatifs, maximum 15 chiffres dont 2 décimales, pas d'arrondi implicite ; au moins deux lignes, exactement une colonne positive par ligne ; refus journal inactif, compte inactif, exercice clos/hors dates.
-- Création/validation/clôture sérialisées sur exercice ; ajout de lignes sérialisé sur exercice puis écriture. Mutations/suppressions directes et bulk ORM des écritures/lignes rejetées. Seul le service de validation marque l'écriture validée après contrôle des lignes persistées.
+- Création/validation sérialisées sur exercice ; clôture automatique désormais suspendue ; ajout de lignes sérialisé sur exercice puis écriture. Mutations/suppressions directes et bulk ORM des écritures/lignes rejetées. Seul le service de validation marque l'écriture validée après contrôle des lignes persistées.
 - Références comptes/journaux/exercices protégées contre suppression en cascade (`PROTECT`). Rechargement `force` du plan fait un update_or_create par entreprise, jamais une suppression des comptes ou écritures.
 - Configuration par entreprise ; nouvelle unicité configuration non vide et immobilisation par tenant/code. Relevés bancaires reçoivent un champ tenant pour future remédiation.
 - Pont signaux comptes désactivé par défaut et irréactivable en l'état. Aucun encaissement/transfert automatiquement assimilé à vente/charge. Nouveau règlement exige contrepartie explicite hors vente/transfert ; transfert exige deux comptes de trésorerie distincts.
-- Contrepassation avec motif, références source stables, original conservé, répétition rejetée. Exercice ouvert correspondant à la date de contrepassation requis. Les agrégats dashboard/clôture tiennent compte des débits des produits et crédits des charges : une vente contrepassée ne laisse pas de bénéfice fictif.
+- Contrepassation avec motif, références source stables, original conservé, répétition rejetée. Exercice ouvert correspondant à la date de contrepassation requis. Les agrégats dashboard et calculs préparatoires de clôture tiennent compte des débits des produits et crédits des charges : une vente contrepassée ne laisse pas de bénéfice fictif.
 - Injection `configuration_id`/`id` dans les soldes initiaux refusée par liste blanche ; montants validés avant écriture.
 - Statut staff/superuser ne donne plus implicitement un droit comptable. Le moteur reçoit un contexte déjà autorisé ; l'app hôte reste responsable des appartenances actives et rôles locaux.
 - Les anciens ViewSets refusent toutes les requêtes, y compris superuser. Serializers historiques de création bloqués ; représentations explicites ; champ de ligne `sens` inexistant retiré. Aucune route HTML historique enregistrée.
@@ -77,7 +77,7 @@ Le service reçoit un adaptateur interne `tenancy.engine_gateway` : création ce
 ## Bloquants avant fusion/activation
 
 1. Exécuter suites et migrations sur PostgreSQL isolé ; ajouter recette concurrente validation/ajout de ligne/clôture/contrepassation et collisions de références. Tester backup/restore et migration sur copie réaliste, avec rapprochement des balances et graphes FK.
-2. Valider contrat réel Accounts access tokens at+jwt RS256, issuer/audience/JWKS/rotation et droits locaux ; la PR ne prouve pas le raccordement au fournisseur réel.
+2. Valider le contrat réel Accounts : access tokens opaques à introspecter sur un endpoint serveur authentifié (saheltech-identity PR de préparation), issuer/client_id/sub/scope/expiration/révocation et rôles locaux ; la PR ne prouve pas le raccordement au fournisseur réel.
 3. Inventorier l'historique sans tenant et FK incohérentes ; plan de rattachement approuvé fondé sur pièces sources, sans rattachement par email ou tenant arbitraire. Durcissement DB après cette remédiation seulement.
 4. Épingler une révision canonique validée puis définir l'API nouvelle tenant-scoped et son contrat de saisie. Les états financiers ne sont pas certifiés SYSCOHADA par ces seuls tests ; revue métier (bilan, paie, TVA, clôture, comptes de paiement) requise.
 5. Inbox/outbox versionnées, idempotence événement source, reprise/annulation/rapprochement. L'unicité référence et la contrepassation stable ne remplacent pas une inbox d'événements.
@@ -85,3 +85,15 @@ Le service reçoit un adaptateur interne `tenancy.engine_gateway` : création ce
 7. Audit métier et tests propres aux amortissements/rapprochement avant lever leur suspension ; réouverture d'exercice reste refusée avant procédure autorisée de contrepassation de clôture.
 
 **Décision : changements proposés pour revue en brouillon ; pas de fusion ni activation opérationnelle à ce stade.**
+
+
+## Intervention complémentaire du 12 octobre 2026 (non testée)
+
+- Le lookup d'un code SYSCOHADA fourni en chaîne ne se transforme plus silencieusement en PK Django : un entier est un identifiant, une chaîne est un code.
+- Les signaux ecriture_validee sont différés via transaction.on_commit pour ne pas publier un écrit en cas de rollback ; le protocole outbox/inbox reste à développer.
+- Clôture automatique historique **désactivée par défaut et actuellement refusée** : l'imputation simplifiée du résultat au capital n'a pas reçu de validation SYSCOHADA, et l'autorité Cloud/Local n'est pas définie.
+- Trois nouveaux tests PostgreSQL TransactionTestCase vérifient verrou de l'exercice, validation concurrente et références répétées, mais **ils n'ont pas encore été exécutés**.
+- SahelTech Comptabilité fournit désormais un Docker Compose de recette PostgreSQL 16 manuel, sans publication de port, qui réunit les deux dépôts voisins. Consulter docs/POSTGRES_RECETTE.md de saheltech-comptabilite PR #1.
+- La PR #3 du même dépôt contient une implémentation alternative des migrations 0004/0005 : **ne pas fusionner les deux branches ensemble**. La PR #4 est la candidate principale après recette.
+
+Les 52 tests SQLite déclarés sont antérieurs à cette intervention complémentaire ; ne pas présenter ces nouveaux correctifs comme validés sans relancer la suite complète. Aucun test PostgreSQL n'est attesté dans ce nouveau travail.
