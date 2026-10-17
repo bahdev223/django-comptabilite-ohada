@@ -1,4 +1,6 @@
 from django.test import TestCase
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from ..models import (
     CompteComptable,
@@ -23,4 +25,17 @@ class InitialisationServiceTest(TestCase):
         self.assertGreater(CompteComptable.objects.count(), 50)
         compte = CompteComptable.objects.get(code="571")
         self.assertEqual(compte.libelle, "Caisse")
+
+    def test_chart_load_is_bounded_and_preserves_other_tenant(self):
+        other = CompteComptable.objects.create(code='571', libelle='Private chart', entreprise_id='OTHER')
+        with CaptureQueriesContext(connection) as queries:
+            result = self.service.charger_plan_comptable(entreprise_id='BATCH')
+        self.assertTrue(result['success'])
+        self.assertLess(len(queries), 35, 'Chart initialization must not issue one query per account')
+        other.refresh_from_db()
+        self.assertEqual(other.libelle, 'Private chart')
+        self.assertFalse(CompteComptable.objects.filter(entreprise_id='BATCH').exclude(parent=None).exclude(parent__entreprise_id='BATCH').exists())
+        repeated = self.service.charger_plan_comptable(entreprise_id='BATCH')
+        self.assertEqual(repeated['comptes_crees'], 0)
+        self.assertEqual(CompteComptable.objects.filter(entreprise_id='BATCH').count(), result['total'])
 

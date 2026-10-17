@@ -30,9 +30,13 @@ class InitialisationService:
         if not comptes_data:
             return {"success": False, "error": "Aucun compte dans le fichier"}
 
-        comptes_crees = 0
-        parents = {}
-
+        # Serialize chart loading for this tenant, then fetch existing accounts
+        # once. A distant PostgreSQL must not pay one round trip per chart row.
+        config = ConfigurationComptable.get_config(entreprise_id=entreprise_id)
+        config = ConfigurationComptable.objects.select_for_update().get(pk=config.pk)
+        parents = {c.code: c for c in CompteComptable.objects.filter(entreprise_id=entreprise_id)}
+        additions, changes = [], []
+        fields = ['libelle', 'nature', 'sens', 'niveau', 'type_compte', 'est_mouvement', 'categorie', 'actif']
         for item in comptes_data:
             code = item["code"]
             parent_code = item.get("parent_code")
@@ -46,28 +50,36 @@ class InitialisationService:
                 "categorie": item.get("categorie", "bilan"),
                 "actif": item.get("actif", True),
             }
-            loader = CompteComptable.objects.update_or_create if force else CompteComptable.objects.get_or_create
-            compte, created = loader(
-                entreprise_id=entreprise_id, code=code, defaults=defaults,
-            )
-            if created:
-                comptes_crees += 1
-            parents[code] = compte
+            if code not in parents:
+                compte = CompteComptable(entreprise_id=entreprise_id, code=code, **defaults)
+                additions.append(compte)
+                parents[code] = compte
+            elif force:
+                compte = parents[code]
+                for field, value in defaults.items():
+                    setattr(compte, field, value)
+                changes.append(compte)
+        CompteComptable.objects.bulk_create(additions, batch_size=100)
+        if changes:
+            CompteComptable.objects.bulk_update(changes, fields, batch_size=100)
 
+        parent_changes = []
         for item in comptes_data:
             code = item["code"]
             parent_code = item.get("parent_code")
             if parent_code and parent_code in parents:
-                compte = CompteComptable.objects.get(entreprise_id=entreprise_id, code=code)
-                compte.parent = parents[parent_code]
-                compte.save(update_fields=["parent"])
+                compte = parents[code]
+                if compte.parent_id != parents[parent_code].pk:
+                    compte.parent = parents[parent_code]
+                    parent_changes.append(compte)
+        if parent_changes:
+            CompteComptable.objects.bulk_update(parent_changes, ['parent'], batch_size=100)
 
-        config = ConfigurationComptable.get_config(entreprise_id=entreprise_id)
         config.est_initialise = True
         config.date_initialisation = date.today()
         config.save()
 
-        return {"success": True, "comptes_crees": comptes_crees, "total": len(comptes_data)}
+        return {"success": True, "comptes_crees": len(additions), "total": len(comptes_data)}
 
     @staticmethod
     @transaction.atomic
