@@ -2,6 +2,7 @@ from .compte import CompteComptable, NatureCompte, SensCompte, TypeCompteComptab
 from .ecriture import EcritureComptable, LigneEcritureComptable
 from .journal import JournalComptable
 from .exercice import ExerciceComptable
+from .accounting_policy import AccountingPolicyAssignment
 from .configuration import ConfigurationComptable, SoldeInitialComptable
 from .amortissement import Immobilisation, PlanAmortissement
 from .rapprochement import ReleveBancaire, LigneReleveBancaire
@@ -16,6 +17,7 @@ __all__ = [
     "LigneEcritureComptable",
     "JournalComptable",
     "ExerciceComptable",
+    "AccountingPolicyAssignment",
     "ConfigurationComptable",
     "SoldeInitialComptable",
     "Immobilisation",
