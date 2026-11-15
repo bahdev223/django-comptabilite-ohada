@@ -94,6 +94,8 @@ class ValidationService:
         for ligne in lignes:
             ligne['compte'] = CompteComptable.objects.filter(pk=ligne['compte']).first()
         validate_entry(ecriture.date_ecriture, ecriture.journal, ecriture.exercice, lignes, entreprise_id)
+        from .accounting_policy_service import freeze_for_posting
+        freeze_for_posting(ecriture.exercice, entreprise_id=entreprise_id)
         ecriture.validee = True
         ecriture.date_validation = timezone.now()
         # Validated under locks above; bypass the model's generic save guard only here.
